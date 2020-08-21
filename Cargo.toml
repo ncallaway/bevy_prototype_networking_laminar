@@ -1,0 +1,21 @@
+[package]
+name = "bevy-prototype-laminar-networking"
+version = "0.1.0"
+authors = ["Noah Callaway <noah@apsis.io>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = { git = "https://github.com/bevyengine/bevy" }
+smallvec = "1.4.2"
+rand = "0.7"
+laminar = "0.3.2"
+
+[lib]
+name = "bevy_prototype_laminar_networking"
+path = "crates/bevy_prototype_laminar_networking/src/lib.rs"
+
+[[bin]]
+name = "testbed"
+path = "testbed/src/bin.rs"
