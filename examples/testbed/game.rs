@@ -1,11 +1,12 @@
 use bevy::prelude::*;
 
 use rand::seq::SliceRandom;
+use serde::{Deserialize, Serialize};
 
-use super::net::ConnectionInfo;
+use super::net::{ConnectionInfo, CreateMessages};
 
 // game stuff
-#[derive(Debug)]
+#[derive(Properties, Default, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub message: String,
     pub from: String,
@@ -145,20 +146,23 @@ fn message_compact_system(mut messages: Query<&mut Message>) {
 fn add_message_system(
     mut commands: Commands,
     ci: Res<ConnectionInfo>,
+    mut network_create_messages: ResMut<CreateMessages>,
     mut interaction_query: Query<(&Button, Mutated<Interaction>)>,
 ) {
-    if ci.is_client() {
-        return;
-    }
-
     for (_button, interaction) in &mut interaction_query.iter() {
         if let Interaction::Clicked = *interaction {
-            commands.spawn((Message::new(&random_messaage(), "server", 255),));
+            if ci.is_server() {
+                // immediately create the message
+                commands.spawn((Message::new(&random_message(), "server", 255),));
+            } else {
+                // schedule the message to be sent to the server
+                network_create_messages.messages.push(random_message());
+            }
         }
     }
 }
 
-fn random_messaage() -> String {
+fn random_message() -> String {
     let msgs = [
         "Lorem ipsum dolor sit amet",
         "consectetur adipiscing elit",
