@@ -8,6 +8,64 @@ This is a prototype of a networking crate for [`bevy`](https://github.com/bevyen
 
 ## Getting Started
 
+1. Add `bevy_prototype_laminar_networking` to `Cargo.toml`
+
+```
+[dependencies]
+bevy = "0.1.3"
+bevy_prototype_laminar_networking = { git = "https://github.com/ncallaway/bevy_prototype_laminar_networking" }
+```
+
+2. Add the NetworkPlugin to your `bevy` app setup
+
+```
+use bevy_prototype_laminar_networking::NetworkingPlugin;
+
+...
+
+app
+  .add_default_plugins()
+> .add_plugin(NetworkingPlugin)
+  .add_system(...)
+```
+
+3. Use the NetworkResource to bind to a socket and send/broadcast messages
+
+```
+fn startup_system(net: ResMut<NetworkResource>) {
+  net.bind("127.0.0.1:12350").unwrap();
+}
+
+fn greeting_system(net: Res<NetworkResource>) {
+  net.broadcast(b"How is everybody?", NetworkDelivery::ReliableSequenced(Some(1)));
+}
+```
+
+4. Listen for `NetworkEvent`s to receive incoming messages
+
+```
+#[derive(Default)]
+struct NetworkListenerState {
+    network_events: EventReader<NetworkEvent>,
+}
+
+App::build()
+        .add_default_plugins()
+        .add_plugin(NetworkingPlugin)
+      > .init_resource::<NetworkListenerState>()
+      > .add_system(print_network_events.system())
+        .run();
+
+fn print_network_events(
+    mut state: ResMut<NetworkListenerState>,
+    network_events: Res<Events<NetworkEvent>>,
+) {
+    for event in state.network_events.iter(&network_events) {
+        println!("Received a NetworkEvent: {:?}", event);
+    }
+}
+```
+
 ## Examples
 
 ### Testbed
@@ -54,6 +112,20 @@ Network Event: Disconnected(Connection { addr: V4(127.0.0.1:12351), socket: Sock
 ```
 
 ## Future Work
+
+The current prototype implementation is extremely rough and early. The current work is mostly about exploring to discover a Network Plugin API that fits the bevy design. Listed here is the current low-hanging fruit for improving this prototype:
+
+- **Improve error handling**: Currently errors are resolved through `.unwrap()`, `.expect()`, `.panic()` or silently being dropped. The error handling should be cleaned up throughout the plugin, with a clean presentation of errors to the caller.
+- **Multiple sockets**: The prototype currently only allows a single socket, but was designed to easily allow for multiple sockets.
+- **Closing sockets**: The prototype right now doesn't have the ability to manually close a socket. Sockets are closed when the application exists. Add the functionality to manually close a socket.
+- **Improve testbed**: The testbed has a number of areas that could be improved
+  - **Repository split**: If other projects have interest in using the testbed, split it out into it's own create/repository.
+  - **Code cleanup: net/prototype interface**: The testbed has some rough areas in the split between the `net/mod.rs` and `net/prototype.rs`. Consider cleaning up this interface to make it cleaner to implement a plugin integration
+  - **Code cleanup: Rename Messages**: For a networking testbed, having a domain entity called `Message` is unreasonably burdensom. Rename these to something that doesn't have a networking connotation.
+  - **Code cleanup: Message sync**: The messages are currently fully serialized whenever a message is changed. Clean this up to be a better representation of the desired sync model so that the server only sends the changes on a `Reliable` channel, and the Client can request the full list of messages when they connect, or need to reset their state.
+  - **Explore additional prototypical network interactions**: The server sync'd cube example relies on there being a single cube. Consider introducing something that has multiple copies being sync'd to demonstrate sharing stable IDs across the network. Find other ways to expand the testbed to be more representative of the needs of real games.
+- **Explore additional useful networking features**: `amethyst-network` exposes a `network simulation time`, which helps synchornize time and track `frame lag` when sending network messages over the system. Explore this concept, and other common networking tasks that would be useful in a low-level networking plugin.
+- **Explore shared transport API**: Explore sharing a similar API surface with other Networking Plugins (or integrating other transports into this plugin), so that callers can easily switch between UDP, TCP, Laminar, WebRTC, Naia, etc.
 
 ## License
 

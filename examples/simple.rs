@@ -60,7 +60,7 @@ struct MessageTimerState {
 impl Default for MessageTimerState {
     fn default() -> Self {
         MessageTimerState {
-            message_timer: Timer::from_seconds(5.0),
+            message_timer: Timer::from_seconds(5.0, true),
         }
     }
 }
