@@ -37,7 +37,7 @@ fn print_network_events(
     }
 }
 
-fn startup_system(mut net: ResMut<NetworkResource>, ci: Res<ConnectionInfo>) {
+fn startup_system(net: ResMut<NetworkResource>, ci: Res<ConnectionInfo>) {
     if ci.is_server() {
         start_server(net);
     } else {
@@ -46,8 +46,6 @@ fn startup_system(mut net: ResMut<NetworkResource>, ci: Res<ConnectionInfo>) {
 }
 
 fn start_server(mut net: ResMut<NetworkResource>) {
-    let server: SocketAddr = SERVER.parse().unwrap();
-
     net.bind(SERVER).unwrap();
 }
 
@@ -76,7 +74,6 @@ fn send_messages(
     state.message_timer.tick(time.delta_seconds);
     if state.message_timer.finished {
         let server: SocketAddr = SERVER.parse().unwrap();
-        let client: SocketAddr = CLIENT.parse().unwrap();
 
         if ci.is_server() {
             net.broadcast(
@@ -96,7 +93,7 @@ fn send_messages(
 
 pub enum ConnectionInfo {
     Server,
-    Client { name: String },
+    Client,
 }
 
 impl ConnectionInfo {
@@ -109,7 +106,7 @@ impl ConnectionInfo {
 
     pub fn is_client(&self) -> bool {
         return match &self {
-            ConnectionInfo::Client { .. } => true,
+            ConnectionInfo::Client => true,
             _ => false,
         };
     }
@@ -134,15 +131,5 @@ fn parse_args() -> ConnectionInfo {
         return ConnectionInfo::Server;
     }
 
-    if args.len() < 3 {
-        panic!("When running as a client a client name needs to be provided.");
-    }
-
-    if args[2].len() > 6 {
-        panic!("The client name must be < 6 characters");
-    }
-
-    return ConnectionInfo::Client {
-        name: args[2].clone(),
-    };
+    return ConnectionInfo::Client;
 }
