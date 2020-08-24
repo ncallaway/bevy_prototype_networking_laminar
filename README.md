@@ -128,6 +128,11 @@ The current prototype implementation is extremely rough and early. The current w
 - **Explore additional useful networking features**: `amethyst-network` exposes a `network simulation time`, which helps synchornize time and track `frame lag` when sending network messages over the system. Explore this concept, and other common networking tasks that would be useful in a low-level networking plugin.
 - **Explore shared transport API**: Explore sharing a similar API surface with other Networking Plugins (or integrating other transports into this plugin), so that callers can easily switch between UDP, TCP, Laminar, WebRTC, Naia, etc.
 
+## ACKs
+
+- Thanks first of all to the amethyst team for `laminar`
+- Thanks again to the amethyst team for `amethyst-network`
+
 ## License
 
 Licesened under the [MIT license](https://opensource.org/licenses/MIT).
