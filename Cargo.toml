@@ -8,8 +8,8 @@ license = "MIT"
 readme = "README.md"
 repository = "https://github.com/ncallaway/bevy_prototype_networking_laminar"
 homepage = "https://github.com/ncallaway/bevy_prototype_networking_laminar"
-keywords = ["game", "networking", "bevy", "laminar"]
-categories = ["bevy", "networking"]
+keywords = ["games", "networking", "bevy", "laminar"]
+categories = ["games", "network-programming"]
 exclude = ["assets/**/*"]
 
 [dependencies]

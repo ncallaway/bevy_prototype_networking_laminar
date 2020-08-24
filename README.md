@@ -1,5 +1,6 @@
 # Bevy Prototype Networking Laminar Plugin
 
+[![Crates.io](https://img.shields.io/crates/v/bevy_prototype_networking_laminar.svg)](https://crates.io/crates/bevy_prototype_networking_laminar)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 **Warning: This is a prototype and not ready for production use**
@@ -12,8 +13,8 @@ This is a prototype of a networking crate for [`bevy`](https://github.com/bevyen
 
 ```
 [dependencies]
-bevy = "0.1.3"
-bevy_prototype_networking_laminar = { git = "https://github.com/ncallaway/bevy_prototype_networking_laminar" }
+bevy = "0.1"
+bevy_prototype_networking_laminar = "0.1"
 ```
 
 2. Add the NetworkPlugin to your `bevy` app setup
