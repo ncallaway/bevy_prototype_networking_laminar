@@ -8,18 +8,18 @@ This is a prototype of a networking crate for [`bevy`](https://github.com/bevyen
 
 ## Getting Started
 
-1. Add `bevy_prototype_laminar_networking` to `Cargo.toml`
+1. Add `bevy_prototype_networking_laminar` to `Cargo.toml`
 
 ```
 [dependencies]
 bevy = "0.1.3"
-bevy_prototype_laminar_networking = { git = "https://github.com/ncallaway/bevy_prototype_laminar_networking" }
+bevy_prototype_networking_laminar = { git = "https://github.com/ncallaway/bevy_prototype_networking_laminar" }
 ```
 
 2. Add the NetworkPlugin to your `bevy` app setup
 
 ```
-use bevy_prototype_laminar_networking::NetworkingPlugin;
+use bevy_prototype_networking_laminar::NetworkingPlugin;
 
 ...
 
@@ -70,11 +70,11 @@ fn print_network_events(
 
 ### Testbed
 
-The testbed is a simple project that provides a more comprehensive example of using `bevy_prototype_laminar_networking`.
+The testbed is a simple project that provides a more comprehensive example of using `bevy_prototype_networking_laminar`.
 
 ![Testbed Screenshot](assets/screenshots/testbed-screenshot.png)
 
-The testbed is also is intended to serve as a testbed for any other networking prototypes or attempts. All interaction with `bevy_prototype_laminar_networking` is contained to `examples/testbed/net/prototype.rs`. Using the testbed with a different networking plugin should be as simple as updating `prototype.rs` to interact with the other networking plugin. Contributions to the testbed to improve the code quality, or make the testbed more comprehensive by adding other prototypical network interactions are welcome.
+The testbed is also is intended to serve as a testbed for any other networking prototypes or attempts. All interaction with `bevy_prototype_networking_laminar` is contained to `examples/testbed/net/prototype.rs`. Using the testbed with a different networking plugin should be as simple as updating `prototype.rs` to interact with the other networking plugin. Contributions to the testbed to improve the code quality, or make the testbed more comprehensive by adding other prototypical network interactions are welcome.
 
 - `cargo run --example testbed -- -s 127.0.0.1:12540` to start a server
 - `cargo run --example testbed -- -c 127.0.0.1:12541 127.0.0.1:12540 foo` to start a client named `foo` connecting to the server

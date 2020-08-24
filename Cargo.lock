@@ -343,7 +343,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy_prototype_laminar_networking"
+name = "bevy_prototype_networking_laminar"
 version = "0.1.0"
 dependencies = [
  "bevy",

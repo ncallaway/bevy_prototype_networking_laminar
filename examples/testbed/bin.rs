@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use bevy_prototype_laminar_networking::NetworkingPlugin;
+use bevy_prototype_networking_laminar::NetworkingPlugin;
 
 mod game;
 mod net;

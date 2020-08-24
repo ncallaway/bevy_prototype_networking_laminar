@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use bevy_prototype_laminar_networking::{
+use bevy_prototype_networking_laminar::{
     NetworkDelivery, NetworkEvent, NetworkResource, NetworkingPlugin,
 };
 
