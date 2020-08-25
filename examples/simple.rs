@@ -10,7 +10,6 @@ const SERVER: &str = "127.0.0.1:12351";
 const CLIENT: &str = "127.0.0.1:12350";
 
 fn main() {
-    // // EXAMPLE: using the prototype plugin
     App::build()
         .init_resource::<EventListenerState>()
         .init_resource::<MessageTimerState>()
