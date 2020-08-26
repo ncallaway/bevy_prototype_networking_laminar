@@ -77,7 +77,8 @@ fn send_cube_position_system(
         net.broadcast(
             &msg.encode()[..],
             NetworkDelivery::UnreliableSequenced(Some(1)),
-        );
+        )
+        .unwrap();
     }
 }
 
@@ -93,7 +94,8 @@ fn send_create_message_system(
                     *server,
                     &TestbedMessage::CreateMessage(msg.clone()).encode()[..],
                     NetworkDelivery::ReliableOrdered(Some(1)),
-                );
+                )
+                .unwrap();
             }
         }
         _ => {}
@@ -174,7 +176,8 @@ fn handle_introduction_event(
         conn.addr,
         &TestbedMessage::Pong.encode()[..],
         NetworkDelivery::ReliableSequenced(Some(2)),
-    );
+    )
+    .expect("The introduction send failed");
     players.names.insert(conn, name.clone());
     client_update_events.send(ClientUpdateEvent {
         from: name,
@@ -226,14 +229,14 @@ fn broadcast_all_messages(net: Res<NetworkResource>, mut messages_query: Query<&
 
     let sync_messages = TestbedMessage::SyncMessages { messages: messages };
 
-    net.broadcast(
+    let _ = net.broadcast(
         &sync_messages.encode()[..],
         NetworkDelivery::ReliableSequenced(Some(1)),
     );
 }
 
 fn start_server(addr: SocketAddr, mut net: ResMut<NetworkResource>) {
-    net.bind(addr).unwrap();
+    net.bind(addr).expect("We failed to bind to the socket.");
 }
 
 fn start_client(
@@ -242,13 +245,14 @@ fn start_client(
     server_addr: SocketAddr,
     mut net: ResMut<NetworkResource>,
 ) {
-    net.bind(addr).unwrap();
+    net.bind(addr).expect("We failed to bind to the socket.");
 
     net.send(
         server_addr,
         &TestbedMessage::Introduction(name.to_string()).encode()[..],
         NetworkDelivery::ReliableSequenced(Some(1)),
-    );
+    )
+    .expect("We failed to send our introduction message");
 }
 
 impl TestbedMessage {
