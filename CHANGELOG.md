@@ -4,11 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). While in a prototype state, this project does not follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Instead, the `MAJOR` and `MINOR` patch versions will match the version of `bevy` that `bevy_prototype_networking_laminar`. Even `PATCH` releases can introduce breaking changes.
 
-## [Unreleased]
+## [Unreleased] - [BREAKING]
 
 ### Added
 
 - Multiple sockets [#2](https://github.com/ncallaway/bevy_prototype_networking_laminar/issues/2)
+
+### Changed
+
+- [BREAKING] Improved error handling [#1](https://github.com/ncallaway/bevy_prototype_networking_laminar/issues/1)
 
 ## [0.1.0] - 2020-08-23
 

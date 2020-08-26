@@ -38,7 +38,7 @@ fn startup_system(net: ResMut<NetworkResource>) {
 }
 
 fn greeting_system(net: Res<NetworkResource>) {
-  net.broadcast(b"How is everybody?", NetworkDelivery::ReliableSequenced(Some(1)));
+  net.broadcast(b"How is everybody?", NetworkDelivery::ReliableSequenced(Some(1))).unwrap();
 }
 ```
 
@@ -132,8 +132,6 @@ $ cargo run --example multisocket
 
 The current prototype implementation is extremely rough and early. The current work is mostly about exploring to discover a Network Plugin API that fits the bevy design. Listed here is the current low-hanging fruit for improving this prototype:
 
-- **[#1 Improve error handling](https://github.com/ncallaway/bevy_prototype_networking_laminar/issues/1)**: Currently errors are resolved through `.unwrap()`, `.expect()`, `.panic()` or silently being dropped. The error handling should be cleaned up throughout the plugin, with a clean presentation of errors to the caller.
-- **[#2 Multiple sockets](https://github.com/ncallaway/bevy_prototype_networking_laminar/issues/2)**: The prototype currently only allows a single socket, but was designed to easily allow for multiple sockets.
 - **[#3 Closing sockets](https://github.com/ncallaway/bevy_prototype_networking_laminar/issues/3)**: The prototype right now doesn't have the ability to manually close a socket. Sockets are closed when the application exists. Add the functionality to manually close a socket.
 - **Improve testbed**: The testbed has a number of areas that could be improved
   - **Repository split**: If other projects have interest in using the testbed, split it out into it's own create/repository.

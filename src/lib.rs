@@ -10,7 +10,10 @@ use laminar::{Config, Socket};
 use bytes::Bytes;
 use uuid::Uuid;
 
+mod error;
 mod worker;
+
+pub use error::NetworkError;
 
 pub struct NetworkingPlugin;
 
@@ -36,6 +39,7 @@ pub enum NetworkEvent {
     Connected(Connection),
     Disconnected(Connection),
     Message(Connection, Bytes),
+    SendError(NetworkError),
 }
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum NetworkDelivery {
@@ -106,19 +110,19 @@ impl NetworkResource {
         self.connections.iter().any(|c| *c == connection)
     }
 
-    pub fn bind<A: ToSocketAddrs>(&mut self, addr: A) -> Result<SocketHandle, ()> {
+    pub fn bind<A: ToSocketAddrs>(&mut self, addr: A) -> Result<SocketHandle, NetworkError> {
         let mut cfg = Config::default();
         cfg.idle_connection_timeout = Duration::from_millis(2000);
         cfg.heartbeat_interval = Some(Duration::from_millis(1000));
         cfg.max_packets_in_flight = 2048;
 
         let handle = SocketHandle::new();
-        let socket = Socket::bind_with_config(addr, cfg).expect("socket bind failed"); // todo
+        let socket = Socket::bind_with_config(addr, cfg)?;
 
         let instruction = SocketInstruction::AddSocket(handle, socket);
         {
-            let locked = self.instruction_tx.lock().expect("instruction lock failed");
-            locked.send(instruction).expect("instruction send failed");
+            let locked = self.instruction_tx.lock()?;
+            locked.send(instruction)?;
         }
 
         self.bound_sockets.push(handle);
@@ -130,12 +134,17 @@ impl NetworkResource {
         return Ok(handle);
     }
 
-    pub fn send(&self, addr: SocketAddr, message: &[u8], delivery: NetworkDelivery) {
-        self.send_with_config(addr, message, delivery, SendConfig::default());
+    pub fn send(
+        &self,
+        addr: SocketAddr,
+        message: &[u8],
+        delivery: NetworkDelivery,
+    ) -> Result<(), NetworkError> {
+        self.send_with_config(addr, message, delivery, SendConfig::default())
     }
 
-    pub fn broadcast(&self, message: &[u8], delivery: NetworkDelivery) {
-        self.broadcast_with_config(message, delivery, SendConfig::default());
+    pub fn broadcast(&self, message: &[u8], delivery: NetworkDelivery) -> Result<(), NetworkError> {
+        self.broadcast_with_config(message, delivery, SendConfig::default())
     }
 
     pub fn send_with_config(
@@ -144,8 +153,8 @@ impl NetworkResource {
         message: &[u8],
         delivery: NetworkDelivery,
         config: SendConfig,
-    ) {
-        let socket = self.get_socket_or_default(config.socket);
+    ) -> Result<(), NetworkError> {
+        let socket = self.get_socket_or_default(config.socket)?;
 
         let msg = Message {
             destination: addr,
@@ -154,7 +163,9 @@ impl NetworkResource {
             message: Bytes::copy_from_slice(message),
         };
 
-        self.message_tx.lock().unwrap().send(msg).unwrap();
+        self.message_tx.lock()?.send(msg)?;
+
+        Ok(())
     }
 
     pub fn broadcast_with_config(
@@ -162,8 +173,8 @@ impl NetworkResource {
         message: &[u8],
         delivery: NetworkDelivery,
         config: SendConfig,
-    ) {
-        let socket = self.get_socket_or_default(config.socket);
+    ) -> Result<(), NetworkError> {
+        let socket = self.get_socket_or_default(config.socket)?;
 
         let broadcast_to = self.connections_for_socket(socket);
 
@@ -175,21 +186,24 @@ impl NetworkResource {
                 message: Bytes::copy_from_slice(message),
             };
 
-            self.message_tx.lock().unwrap().send(msg).unwrap();
+            self.message_tx.lock()?.send(msg)?;
         }
+
+        Ok(())
     }
 
-    fn get_socket_or_default(&self, socket: Option<SocketHandle>) -> SocketHandle {
+    fn get_socket_or_default(
+        &self,
+        socket: Option<SocketHandle>,
+    ) -> Result<SocketHandle, NetworkError> {
         let socket = socket
             .or(self.default_socket)
-            .expect("No socket handle was provided and no default socket is bound");
+            .ok_or(NetworkError::NoDefaultSocket)?;
 
-        if !self.bound_sockets.contains(&socket) {
-            panic!("Cannot send on the provided socket handle: there is no open socket bound for that handle.");
+        match self.bound_sockets.contains(&socket) {
+            true => Ok(socket),
+            false => Err(NetworkError::NoSocket(socket)),
         }
-
-        // we've turned the socket into the default, and confirmed that it was bound.
-        return socket;
     }
 }
 
@@ -218,7 +232,14 @@ fn process_network_events(
     let mut removed_connections: Vec<Connection> = Vec::new();
 
     {
-        let locked = net.event_rx.lock().unwrap();
+        let locked = match net.event_rx.lock() {
+            Ok(l) => l,
+            // this system is the only consumer of `event_rx`, so if this lock is poisoned that means
+            // a previous iteration of our thread panic'd without taking down the game. We'll
+            // bravely try and soldier on and continue to process network event's, but it's pretty
+            // bad.
+            Err(p) => p.into_inner(),
+        };
 
         while let Ok(event) = locked.try_recv() {
             match event {
