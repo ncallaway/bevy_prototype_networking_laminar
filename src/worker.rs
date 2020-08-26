@@ -24,6 +24,7 @@ pub fn start_worker_thread() -> NetworkResource {
 
     let resource = NetworkResource {
         default_socket: None,
+        bound_sockets: Vec::new(),
         connections: Vec::new(),
         message_tx: Mutex::new(message_tx),
         event_rx: Mutex::new(event_rx),

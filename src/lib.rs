@@ -5,17 +5,24 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Mutex;
 use std::time::Duration;
 
-use bytes::Bytes;
-
 use laminar::{Config, Socket};
+
+use bytes::Bytes;
+use uuid::Uuid;
 
 mod worker;
 
 pub struct NetworkingPlugin;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct SocketHandle {
-    identifier: u32,
+pub struct SocketHandle(uuid::Uuid);
+
+impl SocketHandle {
+    fn new() -> Self {
+        // We're using UUID here to mirror the way bevy currently treats asset handles. Since sockets handles are specific to a single process, and it's
+        // unlikely anyone will have a large number of sockets, we could switching to a u32.
+        Self(Uuid::new_v4())
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -42,8 +49,7 @@ pub enum NetworkDelivery {
 pub struct NetworkResource {
     default_socket: Option<SocketHandle>,
 
-    // future work, allow binding over multiple sockets
-    // sockets: Vec<SocketHandle>,
+    bound_sockets: Vec<SocketHandle>,
     connections: Vec<Connection>,
     event_rx: Mutex<Receiver<NetworkEvent>>,
     message_tx: Mutex<Sender<Message>>,
@@ -101,16 +107,12 @@ impl NetworkResource {
     }
 
     pub fn bind<A: ToSocketAddrs>(&mut self, addr: A) -> Result<SocketHandle, ()> {
-        if let Some(_) = self.default_socket {
-            panic!("Already bound");
-        }
-
         let mut cfg = Config::default();
         cfg.idle_connection_timeout = Duration::from_millis(2000);
         cfg.heartbeat_interval = Some(Duration::from_millis(1000));
         cfg.max_packets_in_flight = 2048;
 
-        let handle = SocketHandle { identifier: 0 };
+        let handle = SocketHandle::new();
         let socket = Socket::bind_with_config(addr, cfg).expect("socket bind failed"); // todo
 
         let instruction = SocketInstruction::AddSocket(handle, socket);
@@ -119,13 +121,32 @@ impl NetworkResource {
             locked.send(instruction).expect("instruction send failed");
         }
 
-        self.default_socket = Some(handle);
+        self.bound_sockets.push(handle);
+
+        if self.default_socket.is_none() {
+            self.default_socket = Some(handle);
+        }
 
         return Ok(handle);
     }
 
     pub fn send(&self, addr: SocketAddr, message: &[u8], delivery: NetworkDelivery) {
-        let socket = self.default_socket.unwrap(); // todo
+        self.send_with_config(addr, message, delivery, SendConfig::default());
+    }
+
+    pub fn broadcast(&self, message: &[u8], delivery: NetworkDelivery) {
+        self.broadcast_with_config(message, delivery, SendConfig::default());
+    }
+
+    pub fn send_with_config(
+        &self,
+        addr: SocketAddr,
+        message: &[u8],
+        delivery: NetworkDelivery,
+        config: SendConfig,
+    ) {
+        let socket = self.get_socket_or_default(config.socket);
+
         let msg = Message {
             destination: addr,
             delivery: delivery,
@@ -136,8 +157,13 @@ impl NetworkResource {
         self.message_tx.lock().unwrap().send(msg).unwrap();
     }
 
-    pub fn broadcast(&self, message: &[u8], delivery: NetworkDelivery) {
-        let socket = self.default_socket.unwrap(); // todo
+    pub fn broadcast_with_config(
+        &self,
+        message: &[u8],
+        delivery: NetworkDelivery,
+        config: SendConfig,
+    ) {
+        let socket = self.get_socket_or_default(config.socket);
 
         let broadcast_to = self.connections_for_socket(socket);
 
@@ -152,6 +178,24 @@ impl NetworkResource {
             self.message_tx.lock().unwrap().send(msg).unwrap();
         }
     }
+
+    fn get_socket_or_default(&self, socket: Option<SocketHandle>) -> SocketHandle {
+        let socket = socket
+            .or(self.default_socket)
+            .expect("No socket handle was provided and no default socket is bound");
+
+        if !self.bound_sockets.contains(&socket) {
+            panic!("Cannot send on the provided socket handle: there is no open socket bound for that handle.");
+        }
+
+        // we've turned the socket into the default, and confirmed that it was bound.
+        return socket;
+    }
+}
+
+#[derive(Default)]
+pub struct SendConfig {
+    pub socket: Option<SocketHandle>, // if none, use the default socket
 }
 
 #[derive(Debug)]

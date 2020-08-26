@@ -69,7 +69,7 @@ fn print_network_events(
 
 ## Examples
 
-### Testbed
+### testbed
 
 The testbed is a simple project that provides a more comprehensive example of using `bevy_prototype_networking_laminar`.
 
@@ -110,6 +110,22 @@ Network Event: Disconnected(Connection { addr: V4(127.0.0.1:12351), socket: Sock
 Network Event: Message(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } }, b"How are things over there?")
 Network Event: Connected(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } })
 Network Event: Disconnected(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } })
+```
+
+### multisocket
+
+This shows the ability to bind to multiple sockets.
+
+```
+$ cargo run --example multisocket
+[SERVER] ---> "How are things?"
+         ---> [CLIENT] "How are things?"
+
+[CLIENT] ---> "Good. Thanks!"
+         ---> [SERVER] "Good. Thanks!"
+
+[SERVER] ---> "How are things?"
+         ---> [CLIENT] "How are things?"
 ```
 
 ## Future Work
