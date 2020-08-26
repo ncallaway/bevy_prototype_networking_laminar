@@ -8,7 +8,11 @@ use bytes::Bytes;
 
 use laminar::{Packet, Socket, SocketEvent};
 
+use super::error::NetworkError;
 use super::{Connection, Message, NetworkEvent, NetworkResource, SocketHandle, SocketInstruction};
+
+const SEND_EXPECT: &str =
+    "The networking worker thread is no longer able to send messages back to the receiver.";
 
 pub fn start_worker_thread() -> NetworkResource {
     let (event_tx, event_rx): (Sender<NetworkEvent>, Receiver<NetworkEvent>) = mpsc::channel();
@@ -42,7 +46,7 @@ pub fn start_worker_thread() -> NetworkResource {
 
         handle_instructions(&mut sockets, &instruction_rx);
         poll_sockets(&mut sockets);
-        send_messages(&mut sockets, &message_rx);
+        send_messages(&mut sockets, &message_rx, &event_tx);
         receive_messages(&mut sockets, &event_tx);
 
         // go dark
@@ -71,23 +75,28 @@ fn poll_sockets(sockets: &mut TrackedSockets) {
     }
 }
 
-fn send_messages(sockets: &mut TrackedSockets, message_rx: &Receiver<Message>) {
+fn send_messages(
+    sockets: &mut TrackedSockets,
+    message_rx: &Receiver<Message>,
+    event_tx: &Sender<NetworkEvent>,
+) {
     while let Ok(message) = message_rx.try_recv() {
         let handle = message.socket_handle;
-        let sopt = sockets.get_socket_mut(handle);
-        match sopt {
-            Some(socket) => {
+
+        sockets
+            .get_socket_mut(handle)
+            .and_then(|socket| {
                 socket
                     .send(Packet::reliable_unordered(
                         message.destination,
                         message.message.to_vec(),
                     ))
-                    .expect("This should send");
-            }
-            None => {
-                println!("Attempted to send a message to a handle that is not open. Ignoring the message");
-            }
-        }
+                    .map_err(|e| e.into())
+            })
+            .or_else(|err| event_tx.send(NetworkEvent::SendError(err)))
+            // this expect() is OK, since our only way of communicating errors back to the callers through this event channel. If
+            // we can no longer push events back through this channel, it's time to panic.
+            .expect(SEND_EXPECT);
     }
 }
 
@@ -113,7 +122,9 @@ fn receive_messages(sockets: &mut TrackedSockets, event_tx: &Sender<NetworkEvent
             };
 
             if let Some(e) = e {
-                event_tx.send(e).unwrap();
+                // this expect() is OK, since our only way of communicating errors back to the callers through this event channel. If
+                // we can no longer push events back through this channel, it's time to panic.
+                event_tx.send(e).expect(SEND_EXPECT);
             }
         }
     }
@@ -155,24 +166,24 @@ impl TrackedSockets {
 
     pub fn has_socket(&self, handle: SocketHandle) -> bool {
         return match self.get_socket(handle) {
-            Some(_) => true,
-            None => false,
+            Ok(_) => true,
+            Err(_) => false,
         };
     }
 
-    pub fn get_socket(&self, handle: SocketHandle) -> Option<&Socket> {
-        return self
-            .sockets
+    pub fn get_socket(&self, handle: SocketHandle) -> Result<&Socket, NetworkError> {
+        self.sockets
             .iter()
             .find(|(h, _)| handle == *h)
-            .and_then(|(_, s)| Some(s));
+            .and_then(|(_, s)| Some(s))
+            .ok_or(NetworkError::NoSocket(handle))
     }
 
-    pub fn get_socket_mut(&mut self, handle: SocketHandle) -> Option<&mut Socket> {
-        return self
-            .sockets
+    pub fn get_socket_mut(&mut self, handle: SocketHandle) -> Result<&mut Socket, NetworkError> {
+        self.sockets
             .iter_mut()
             .find(|(h, _)| handle == *h)
-            .and_then(|(_, s)| Some(s));
+            .and_then(|(_, s)| Some(s))
+            .ok_or(NetworkError::NoSocket(handle))
     }
 }

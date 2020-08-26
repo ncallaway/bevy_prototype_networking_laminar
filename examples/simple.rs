@@ -78,13 +78,15 @@ fn send_messages(
             net.broadcast(
                 b"How are things over there?",
                 NetworkDelivery::ReliableSequenced(Some(1)),
-            );
+            )
+            .unwrap()
         } else {
             net.send(
                 server,
                 b"Good.",
                 NetworkDelivery::ReliableSequenced(Some(1)),
-            );
+            )
+            .unwrap()
         }
         state.message_timer.reset();
     }
