@@ -121,6 +121,8 @@ impl NetworkResource {
             locked.send(instruction).expect("instruction send failed");
         }
 
+        self.bound_sockets.push(handle);
+
         if self.default_socket.is_none() {
             self.default_socket = Some(handle);
         }
@@ -182,7 +184,7 @@ impl NetworkResource {
             .or(self.default_socket)
             .expect("No socket handle was provided and no default socket is bound");
 
-        if self.bound_sockets.contains(&socket) {
+        if !self.bound_sockets.contains(&socket) {
             panic!("Cannot send on the provided socket handle: there is no open socket bound for that handle.");
         }
 
