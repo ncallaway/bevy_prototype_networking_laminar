@@ -79,16 +79,15 @@ impl Plugin for NetworkingPlugin {
 
 impl NetworkResource {
     pub fn connections(&self) -> &Vec<Connection> {
-        return &self.connections;
+        &self.connections
     }
 
     pub fn connections_for_socket(&self, socket: SocketHandle) -> Vec<Connection> {
-        return self
-            .connections
+        self.connections
             .iter()
             .filter(|c| c.socket == socket)
-            .map(|c| *c)
-            .collect();
+            .cloned()
+            .collect()
     }
 
     pub fn add_connection(&mut self, connection: Connection) {
@@ -138,7 +137,7 @@ impl NetworkResource {
             self.default_socket = Some(handle);
         }
 
-        return Ok(handle);
+        Ok(handle)
     }
 
     pub fn send(
@@ -165,7 +164,7 @@ impl NetworkResource {
 
         let msg = Message {
             destination: addr,
-            delivery: delivery,
+            delivery,
             socket_handle: socket,
             message: Bytes::copy_from_slice(message),
         };
@@ -188,7 +187,7 @@ impl NetworkResource {
         for conn in broadcast_to {
             let msg = Message {
                 destination: conn.addr,
-                delivery: delivery,
+                delivery,
                 socket_handle: socket,
                 message: Bytes::copy_from_slice(message),
             };

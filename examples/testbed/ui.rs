@@ -268,7 +268,7 @@ fn spawn_message_display_with_entity(
     value: String,
     ordinal: u8,
 ) {
-    let md = MessageDisplay { ordinal: ordinal };
+    let md = MessageDisplay { ordinal };
 
     let e = Entity::new();
     commands
@@ -280,7 +280,7 @@ fn spawn_message_display_with_entity(
                     ..Default::default()
                 },
                 text: Text {
-                    value: value,
+                    value,
                     font: *font_handle,
                     style: TextStyle {
                         font_size: 16.0,

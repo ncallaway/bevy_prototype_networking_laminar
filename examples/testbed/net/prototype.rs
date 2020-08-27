@@ -54,7 +54,7 @@ fn send_message_update_system(
         return;
     }
 
-    if let Some(_) = &mut changed_query.iter().into_iter().next() {
+    if changed_query.iter().into_iter().next().is_some() {
         broadcast_all_messages(net, all_messages_query);
     }
 }
@@ -85,18 +85,15 @@ fn send_create_message_system(
     net: Res<NetworkResource>,
     mut network_create_messages: ResMut<CreateMessages>,
 ) {
-    match &(*ci) {
-        ConnectionInfo::Client { server, .. } => {
-            for msg in &network_create_messages.messages {
-                net.send(
-                    *server,
-                    &TestbedMessage::CreateMessage(msg.clone()).encode()[..],
-                    NetworkDelivery::ReliableOrdered(Some(1)),
-                )
-                .expect("Create message failed to send");
-            }
+    if let ConnectionInfo::Client { server, .. } = &(*ci) {
+        for msg in &network_create_messages.messages {
+            net.send(
+                *server,
+                &TestbedMessage::CreateMessage(msg.clone()).encode()[..],
+                NetworkDelivery::ReliableOrdered(Some(1)),
+            )
+            .expect("Create message failed to send");
         }
-        _ => {}
     }
 
     network_create_messages.messages.clear();
@@ -112,6 +109,7 @@ struct Players {
     names: std::collections::HashMap<Connection, String>,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_network_events(
     ci: Res<ConnectionInfo>,
     net: Res<NetworkResource>,
@@ -215,7 +213,7 @@ fn handle_sync_messages_event(
     sync_messages_events: &mut ResMut<Events<SyncMessagesEvent>>,
 ) {
     if ci.is_client() {
-        sync_messages_events.send(SyncMessagesEvent { messages: messages })
+        sync_messages_events.send(SyncMessagesEvent { messages })
     }
 }
 
@@ -225,7 +223,7 @@ fn broadcast_all_messages(net: Res<NetworkResource>, mut messages_query: Query<&
         messages.push(msg.clone());
     }
 
-    let sync_messages = TestbedMessage::SyncMessages { messages: messages };
+    let sync_messages = TestbedMessage::SyncMessages { messages };
 
     let _ = net.broadcast(
         &sync_messages.encode()[..],
@@ -258,18 +256,18 @@ impl TestbedMessage {
         if SERIALIZE_JSON {
             let encoded_json = serde_json::to_string(&self).unwrap();
             let bytes: Vec<u8> = encoded_json.as_bytes().to_vec();
-            return bytes;
+            bytes
         } else {
-            return bincode::serialize(&self).unwrap();
+            bincode::serialize(&self).unwrap()
         }
     }
 
     pub fn decode(bytes: &[u8]) -> TestbedMessage {
         if SERIALIZE_JSON {
             let encoded_json = std::str::from_utf8(bytes).unwrap();
-            return serde_json::from_str(&encoded_json).unwrap();
+            serde_json::from_str(&encoded_json).unwrap()
         } else {
-            return bincode::deserialize(bytes).unwrap();
+            bincode::deserialize(bytes).unwrap()
         }
     }
 }

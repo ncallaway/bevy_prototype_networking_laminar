@@ -54,7 +54,7 @@ fn send_messages(
             to,
             message.as_bytes(),
             NetworkDelivery::ReliableSequenced(Some(1)),
-            SendConfig { socket: socket },
+            SendConfig { socket },
         );
         state.from_server = from_server;
 
@@ -70,6 +70,7 @@ fn print_messages(
     if let Some(server) = sockets.server {
         if let Some(client) = sockets.client {
             for event in state.network_events.iter(&my_events) {
+                #[allow(clippy::single_match)]
                 match event {
                     NetworkEvent::Message(conn, data) => {
                         let msg = String::from_utf8_lossy(data);
@@ -84,6 +85,7 @@ fn print_messages(
 
                         println!("\t ---> [{}] {:?}\n", from, msg);
                     }
+                    NetworkEvent::Connected(conn) => println!("\t {} connected", conn),
                     _ => {}
                 }
             }
