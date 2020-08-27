@@ -64,7 +64,7 @@ pub struct NetworkResource {
     connections: Vec<Connection>,
     event_rx: Mutex<Receiver<NetworkEvent>>,
     message_tx: Mutex<Sender<Message>>,
-    instruction_tx: Mutex<Sender<SocketInstruction>>,
+    instruction_tx: Mutex<Sender<WorkerInstructions>>,
 }
 
 impl Plugin for NetworkingPlugin {
@@ -125,7 +125,7 @@ impl NetworkResource {
         let handle = SocketHandle::new();
         let socket = Socket::bind_with_config(addr, cfg)?;
 
-        let instruction = SocketInstruction::AddSocket(handle, socket);
+        let instruction = WorkerInstructions::AddSocket(handle, socket);
         {
             let locked = self.instruction_tx.lock()?;
             locked.send(instruction)?;
@@ -213,6 +213,13 @@ impl NetworkResource {
     }
 }
 
+impl Drop for NetworkResource {
+    fn drop(&mut self) {
+        let locked = self.instruction_tx.lock().unwrap();
+        locked.send(WorkerInstructions::Terminate).unwrap();
+    }
+}
+
 #[derive(Default)]
 pub struct SendConfig {
     pub socket: Option<SocketHandle>, // if none, use the default socket
@@ -226,8 +233,9 @@ struct Message {
     destination: SocketAddr,
 }
 
-enum SocketInstruction {
+enum WorkerInstructions {
     AddSocket(SocketHandle, Socket),
+    Terminate,
 }
 
 fn process_network_events(
@@ -272,5 +280,25 @@ fn process_network_events(
     for conn in removed_connections {
         net.remove_connection(conn);
         network_events.send(NetworkEvent::Disconnected(conn));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn network_resource_has_no_default_connections() {
+        let network_resource = worker::start_worker_thread();
+
+        assert!(network_resource.default_socket.is_none());
+        assert!(network_resource.bound_sockets.is_empty());
+    }
+
+    #[test]
+    fn binding_network_resource_sets_the_default_socket() {
+        let mut network_resource = worker::start_worker_thread();
+
+        assert!(network_resource.bind("127.0.0.1:12591").is_ok());
+        assert!(network_resource.default_socket.is_some());
     }
 }

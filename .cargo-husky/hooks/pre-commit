@@ -1,5 +1,6 @@
 #!/bin/bash
 cargo fmt
+cargo test --lib
 # cargo clippy --all-targets
 # workaround from: https://github.com/rust-lang/rust-clippy/issues/4612#issuecomment-537633718
 find . | grep "\.rs$" | grep -v "^./target" | xargs touch ; cargo clippy --all-targets -- -D warnings
