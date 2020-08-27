@@ -3,46 +3,26 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  check:
-    name: Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Run cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-
   test:
     name: Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
+      - name: checkout
         uses: actions/checkout@v2
 
-      - name: Install stable toolchain
+      - name: toolchain
         uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
           toolchain: stable
           override: true
 
       - uses: actions/cache@v2
-          with:
-            path: |
-              target
-            key: ${{ runner.os }}-cargo-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+        with:
+          path: |
+            target
+          key: ${{ runner.os }}-cargo-test-stable-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install alsa
+      - name: install alsa
         run: sudo apt-get install --no-install-recommends libasound2-dev
 
       - name: cargo test
