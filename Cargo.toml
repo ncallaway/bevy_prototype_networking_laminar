@@ -19,6 +19,7 @@ bytes = "0.5.6"                               # plumbing message payloads
 uuid = { version = "0.8", features = ["v4"] } # socket handles
 
 [dev-dependencies]
+cargo-husky = { version = "1", features = ["user-hooks"] }
 smallvec = "1.4.2"
 rand = "0.7"
 serde = "1.0.115"
