@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
+use crossbeam_channel::{Receiver, Sender};
 use std::net::{SocketAddr, ToSocketAddrs};
-use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Mutex;
 use std::time::Duration;
 
