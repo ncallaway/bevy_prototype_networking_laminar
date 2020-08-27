@@ -4,17 +4,18 @@ use std::fmt;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Mutex;
-use std::time::Duration;
 
-use laminar::{Config, Socket};
+use laminar::Socket;
 
 use bytes::Bytes;
 use uuid::Uuid;
 
 mod error;
+mod transport;
 mod worker;
 
 pub use error::NetworkError;
+pub use transport::{LaminarConfig, Transport};
 
 pub struct NetworkingPlugin;
 
@@ -117,10 +118,25 @@ impl NetworkResource {
     }
 
     pub fn bind<A: ToSocketAddrs>(&mut self, addr: A) -> Result<SocketHandle, NetworkError> {
-        let mut cfg = Config::default();
-        cfg.idle_connection_timeout = Duration::from_millis(2000);
-        cfg.heartbeat_interval = Some(Duration::from_millis(1000));
-        cfg.max_packets_in_flight = 2048;
+        self.bind_with_transport(addr, Transport::Laminar(LaminarConfig::default()))
+    }
+
+    pub fn bind_with_transport<A: ToSocketAddrs>(
+        &mut self,
+        addr: A,
+        transport: Transport,
+    ) -> Result<SocketHandle, NetworkError> {
+        match transport {
+            Transport::Laminar(config) => self.bind_with_laminar(addr, config),
+        }
+    }
+
+    fn bind_with_laminar<A: ToSocketAddrs>(
+        &mut self,
+        addr: A,
+        config: LaminarConfig,
+    ) -> Result<SocketHandle, NetworkError> {
+        let cfg = config.into();
 
         let handle = SocketHandle::new();
         let socket = Socket::bind_with_config(addr, cfg)?;
