@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use std::fmt;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Mutex;
@@ -32,6 +33,12 @@ impl SocketHandle {
 pub struct Connection {
     pub addr: SocketAddr,
     pub socket: SocketHandle,
+}
+
+impl fmt::Display for Connection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.addr)
+    }
 }
 
 #[derive(Debug)]

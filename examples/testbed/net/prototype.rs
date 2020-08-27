@@ -73,8 +73,7 @@ fn send_cube_position_system(
         let pos = tx.0;
 
         let msg = TestbedMessage::CubePosition(pos.x(), pos.y(), pos.z());
-
-        net.broadcast(
+        let _ = net.broadcast(
             &msg.encode()[..],
             NetworkDelivery::UnreliableSequenced(Some(1)),
         );
@@ -93,7 +92,8 @@ fn send_create_message_system(
                     *server,
                     &TestbedMessage::CreateMessage(msg.clone()).encode()[..],
                     NetworkDelivery::ReliableOrdered(Some(1)),
-                );
+                )
+                .expect("Create message failed to send");
             }
         }
         _ => {}
@@ -170,11 +170,12 @@ fn handle_introduction_event(
     players: &mut ResMut<Players>,
     client_update_events: &mut ResMut<Events<ClientUpdateEvent>>,
 ) {
-    net.send(
+    let _ = net.send(
         conn.addr,
         &TestbedMessage::Pong.encode()[..],
         NetworkDelivery::ReliableSequenced(Some(2)),
     );
+
     players.names.insert(conn, name.clone());
     client_update_events.send(ClientUpdateEvent {
         from: name,
@@ -226,7 +227,7 @@ fn broadcast_all_messages(net: Res<NetworkResource>, mut messages_query: Query<&
 
     let sync_messages = TestbedMessage::SyncMessages { messages: messages };
 
-    net.broadcast(
+    let _ = net.broadcast(
         &sync_messages.encode()[..],
         NetworkDelivery::ReliableSequenced(Some(1)),
     );
@@ -248,7 +249,8 @@ fn start_client(
         server_addr,
         &TestbedMessage::Introduction(name.to_string()).encode()[..],
         NetworkDelivery::ReliableSequenced(Some(1)),
-    );
+    )
+    .expect("Client introduction failed to send");
 }
 
 impl TestbedMessage {

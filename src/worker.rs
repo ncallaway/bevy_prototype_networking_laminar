@@ -36,18 +36,26 @@ pub fn start_worker_thread() -> NetworkResource {
     };
 
     let mut start = std::time::Instant::now();
+    let mut end = std::time::Instant::now();
 
     thread::spawn(move || loop {
         let millis = start.elapsed().as_millis();
         if millis > 50 {
-            println!("worker elapsed: {:?}", start.elapsed());
+            println!(
+                "warning: thread worker loop took {:.3?} ({:.3?} after sleeping)",
+                start.elapsed(),
+                end.elapsed()
+            );
         }
+
         start = std::time::Instant::now();
 
         handle_instructions(&mut sockets, &instruction_rx);
         poll_sockets(&mut sockets);
         send_messages(&mut sockets, &message_rx, &event_tx);
         receive_messages(&mut sockets, &event_tx);
+
+        end = std::time::Instant::now();
 
         // go dark
         std::thread::sleep(sleep_time);

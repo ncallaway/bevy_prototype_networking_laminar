@@ -5,24 +5,64 @@ use bevy_prototype_networking_laminar::{
 };
 
 use std::net::SocketAddr;
+use std::time::Duration;
 
 const SERVER: &str = "127.0.0.1:12351";
 const CLIENT: &str = "127.0.0.1:12350";
 
 fn main() {
     App::build()
+        .add_plugin(bevy::type_registry::TypeRegistryPlugin::default())
+        .add_plugin(bevy::core::CorePlugin)
+        .add_plugin(bevy::app::ScheduleRunnerPlugin::run_loop(
+            Duration::from_secs_f64(1.0 / 60.0),
+        ))
+        .add_plugin(NetworkingPlugin)
         .init_resource::<EventListenerState>()
         .init_resource::<SendTimerState>()
         .init_resource::<Sockets>()
-        .add_default_plugins()
-        .add_plugin(NetworkingPlugin)
-        .add_startup_system(startup_system.system())
-        .add_system(print_messages_system.system())
+        .add_startup_system(startup.system())
+        .add_system(print_messages.system())
         .add_system(send_messages.system())
         .run();
 }
 
-fn print_messages_system(
+fn startup(mut net: ResMut<NetworkResource>, mut sockets: ResMut<Sockets>) {
+    sockets.server = Some(net.bind(SERVER).unwrap());
+    sockets.client = Some(net.bind(CLIENT).unwrap());
+}
+
+fn send_messages(
+    time: Res<Time>,
+    sockets: Res<Sockets>,
+    mut state: ResMut<SendTimerState>,
+    net: ResMut<NetworkResource>,
+) {
+    state.message_timer.tick(time.delta_seconds);
+    if state.message_timer.finished {
+        let server: SocketAddr = SERVER.parse().unwrap();
+        let client: SocketAddr = CLIENT.parse().unwrap();
+
+        let (to, who, message, socket, from_server) = if state.from_server {
+            (client, "SERVER", "How are things?", sockets.server, false)
+        } else {
+            (server, "CLIENT", "Good. Thanks!", sockets.client, true)
+        };
+
+        println!("[{}] ---> {:?}", who, message);
+        let _ = net.send_with_config(
+            to,
+            message.as_bytes(),
+            NetworkDelivery::ReliableSequenced(Some(1)),
+            SendConfig { socket: socket },
+        );
+        state.from_server = from_server;
+
+        state.message_timer.reset();
+    }
+}
+
+fn print_messages(
     mut state: ResMut<EventListenerState>,
     sockets: Res<Sockets>,
     my_events: Res<Events<NetworkEvent>>,
@@ -48,41 +88,6 @@ fn print_messages_system(
                 }
             }
         }
-    }
-}
-
-fn startup_system(mut net: ResMut<NetworkResource>, mut sockets: ResMut<Sockets>) {
-    sockets.server = Some(net.bind(SERVER).unwrap());
-    sockets.client = Some(net.bind(CLIENT).unwrap());
-}
-
-fn send_messages(
-    time: Res<Time>,
-    sockets: Res<Sockets>,
-    mut state: ResMut<SendTimerState>,
-    net: ResMut<NetworkResource>,
-) {
-    state.message_timer.tick(time.delta_seconds);
-    if state.message_timer.finished {
-        let server: SocketAddr = SERVER.parse().unwrap();
-        let client: SocketAddr = CLIENT.parse().unwrap();
-
-        let (to, who, message, socket, from_server) = if state.from_server {
-            (client, "SERVER", "How are things?", sockets.server, false)
-        } else {
-            (server, "CLIENT", "Good. Thanks!", sockets.client, true)
-        };
-
-        println!("[{}] ---> {:?}", who, message);
-        net.send_with_config(
-            to,
-            message.as_bytes(),
-            NetworkDelivery::ReliableSequenced(Some(1)),
-            SendConfig { socket: socket },
-        );
-        state.from_server = from_server;
-
-        state.message_timer.reset();
     }
 }
 
