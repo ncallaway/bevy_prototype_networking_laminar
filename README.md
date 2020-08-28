@@ -85,7 +85,7 @@ The testbed is also is intended to serve as a testbed for any other networking p
 When on the server, you:
 
 - can control the position of the cube with `WASD`
-- can click the "send a message" button to add random message to the `MESSAGES` list
+- can click the "send a note" button to add random note to the `NOTES` list
 
 #### Client
 
@@ -93,8 +93,8 @@ When on the client, you:
 
 - cannot control the position of the cube
 - the cube's position should be syncrhonized with the server
-- you can click the "send a message" button to add a random message to the `MESSAGES` list
-- the `MESSAGES` list is syncrhonized with the server.
+- you can click the "send a note" button to add a random note to the `NOTES` list
+- the `NOTES` list is syncrhonized with the server.
 
 ### simple
 
