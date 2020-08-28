@@ -26,7 +26,7 @@ pub fn start_worker_thread() -> NetworkResource {
         sockets: Vec::new(),
     };
 
-    let sleep_time = Duration::from_millis(250);
+    let sleep_time = Duration::from_millis(1);
 
     let resource = NetworkResource {
         default_socket: None,
