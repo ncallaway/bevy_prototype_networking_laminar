@@ -1,5 +1,4 @@
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender};
+use crossbeam_channel::{unbounded, Receiver, Sender};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -15,12 +14,12 @@ const SEND_EXPECT: &str =
     "The networking worker thread is no longer able to send messages back to the receiver.";
 
 pub fn start_worker_thread() -> NetworkResource {
-    let (event_tx, event_rx): (Sender<NetworkEvent>, Receiver<NetworkEvent>) = mpsc::channel();
-    let (message_tx, message_rx): (Sender<Message>, Receiver<Message>) = mpsc::channel();
+    let (event_tx, event_rx): (Sender<NetworkEvent>, Receiver<NetworkEvent>) = unbounded();
+    let (message_tx, message_rx): (Sender<Message>, Receiver<Message>) = unbounded();
     let (instruction_tx, instruction_rx): (
         Sender<WorkerInstructions>,
         Receiver<WorkerInstructions>,
-    ) = mpsc::channel();
+    ) = unbounded();
 
     let mut sockets = TrackedSockets {
         sockets: Vec::new(),

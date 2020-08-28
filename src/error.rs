@@ -1,8 +1,8 @@
+use crossbeam_channel::SendError;
 use laminar::ErrorKind as LaminarError;
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 use std::io;
-use std::sync::mpsc::SendError;
 use std::sync::{MutexGuard, PoisonError};
 
 use super::{Message, SocketHandle, WorkerInstructions};
