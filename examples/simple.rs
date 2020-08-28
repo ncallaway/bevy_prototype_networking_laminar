@@ -1,21 +1,30 @@
+use bevy::app::ScheduleRunnerPlugin;
 use bevy::prelude::*;
+
+use std::net::SocketAddr;
+use std::time::Duration;
 
 use bevy_prototype_networking_laminar::{
     NetworkDelivery, NetworkEvent, NetworkResource, NetworkingPlugin,
 };
-
-use std::net::SocketAddr;
 
 const SERVER: &str = "127.0.0.1:12351";
 const CLIENT: &str = "127.0.0.1:12350";
 
 fn main() {
     App::build()
-        .init_resource::<EventListenerState>()
-        .init_resource::<MessageTimerState>()
-        .add_resource(parse_args())
-        .add_default_plugins()
+        // minimal plugins necessary for timers + headless loop
+        .add_plugin(bevy::type_registry::TypeRegistryPlugin::default())
+        .add_plugin(bevy::core::CorePlugin)
+        .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+            1.0 / 60.0,
+        )))
+        // The NetworkingPlugin
         .add_plugin(NetworkingPlugin)
+        // Our send
+        .init_resource::<NetworkEventReader>()
+        .init_resource::<SendTimer>()
+        .add_resource(parse_args())
         .add_startup_system(startup_system.system())
         .add_system(print_network_events.system())
         .add_system(send_messages.system())
@@ -23,16 +32,21 @@ fn main() {
 }
 
 #[derive(Default)]
-struct EventListenerState {
+struct NetworkEventReader {
     network_events: EventReader<NetworkEvent>,
 }
 
-fn print_network_events(
-    mut state: ResMut<EventListenerState>,
-    my_events: Res<Events<NetworkEvent>>,
-) {
-    for event in state.network_events.iter(&my_events) {
-        println!("Network Event: {:?}", event);
+fn print_network_events(mut state: ResMut<NetworkEventReader>, events: Res<Events<NetworkEvent>>) {
+    for event in state.network_events.iter(&events) {
+        match event {
+            NetworkEvent::Message(conn, data) => {
+                let msg = String::from_utf8_lossy(data);
+                println!("<--- {:?} from {}", msg, conn);
+            }
+            NetworkEvent::Connected(conn) => println!("\tConnected: {}", conn),
+            NetworkEvent::Disconnected(conn) => println!("\tDisconnected: {}", conn),
+            NetworkEvent::SendError(err) => println!("\tSend Error: {}", err),
+        }
     }
 }
 
@@ -52,14 +66,14 @@ fn start_client(mut net: ResMut<NetworkResource>) {
     net.bind(CLIENT).unwrap();
 }
 
-struct MessageTimerState {
+struct SendTimer {
     message_timer: Timer,
 }
 
-impl Default for MessageTimerState {
+impl Default for SendTimer {
     fn default() -> Self {
-        MessageTimerState {
-            message_timer: Timer::from_seconds(5.0, true),
+        SendTimer {
+            message_timer: Timer::from_seconds(3.0, true),
         }
     }
 }
@@ -67,27 +81,32 @@ impl Default for MessageTimerState {
 fn send_messages(
     ci: Res<ConnectionInfo>,
     time: Res<Time>,
-    mut state: ResMut<MessageTimerState>,
+    mut state: ResMut<SendTimer>,
     net: ResMut<NetworkResource>,
 ) {
     state.message_timer.tick(time.delta_seconds);
     if state.message_timer.finished {
         let server: SocketAddr = SERVER.parse().unwrap();
 
+        let msg = if ci.is_server() {
+            "How are things over there?"
+        } else {
+            "Good."
+        };
+
+        println!("---> {:?}", msg);
         if ci.is_server() {
-            net.broadcast(
-                b"How are things over there?",
-                NetworkDelivery::ReliableSequenced(Some(1)),
-            )
-            .unwrap()
+            net.broadcast(msg.as_bytes(), NetworkDelivery::ReliableSequenced(Some(1)))
+                .unwrap()
         } else {
             net.send(
                 server,
-                b"Good.",
+                msg.as_bytes(),
                 NetworkDelivery::ReliableSequenced(Some(1)),
             )
             .unwrap()
         }
+
         state.message_timer.reset();
     }
 }
@@ -99,17 +118,17 @@ pub enum ConnectionInfo {
 
 impl ConnectionInfo {
     pub fn is_server(&self) -> bool {
-        return match &self {
+        match &self {
             ConnectionInfo::Server => true,
             _ => false,
-        };
+        }
     }
 
     pub fn is_client(&self) -> bool {
-        return match &self {
+        match &self {
             ConnectionInfo::Client => true,
             _ => false,
-        };
+        }
     }
 }
 
@@ -132,5 +151,5 @@ fn parse_args() -> ConnectionInfo {
         return ConnectionInfo::Server;
     }
 
-    return ConnectionInfo::Client;
+    ConnectionInfo::Client
 }

@@ -18,7 +18,7 @@ impl Message {
         Message {
             message: message.to_string(),
             from: from.to_string(),
-            ordinal: ordinal,
+            ordinal,
         }
     }
 }
@@ -124,21 +124,17 @@ fn message_compact_system(mut messages: Query<&mut Message>) {
 
     sorted_displays.sort_by(|a, b| a.ordinal.cmp(&b.ordinal));
 
-    let mut next = 0;
     let mut needs_compact = false;
 
-    for message in &sorted_displays {
-        if message.ordinal != next {
+    for (next, message) in sorted_displays.iter().enumerate() {
+        if message.ordinal != next as u8 {
             needs_compact = true;
         }
-        next = next + 1;
     }
 
     if needs_compact {
-        let mut next = 0;
-        for message in &mut sorted_displays {
-            message.ordinal = next;
-            next = next + 1;
+        for (next, message) in &mut sorted_displays.iter_mut().enumerate() {
+            message.ordinal = next as u8;
         }
     }
 }
@@ -186,5 +182,5 @@ fn random_message() -> String {
         "Phasellus feugiat felis at odio consectetur lacinia. Nullam fermentum malesuada consequat",
     ];
 
-    return msgs.choose(&mut rand::thread_rng()).unwrap().to_string();
+    msgs.choose(&mut rand::thread_rng()).unwrap().to_string()
 }

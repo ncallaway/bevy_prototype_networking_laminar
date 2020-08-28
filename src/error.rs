@@ -5,7 +5,7 @@ use std::fmt::{self, Display, Formatter};
 use std::io;
 use std::sync::{MutexGuard, PoisonError};
 
-use super::{Message, SocketHandle, SocketInstruction};
+use super::{Message, SocketHandle, WorkerInstructions};
 
 #[derive(Debug)]
 pub enum NetworkError {
@@ -18,7 +18,7 @@ pub enum NetworkError {
 #[derive(Debug)]
 pub enum InternalErrorKind {
     MutexLockError,
-    SendSocketInstructionError(String),
+    SendWorkerInstructionsError(String),
     SendMessageError(String),
     LaminarError(LaminarError),
 }
@@ -41,9 +41,9 @@ impl<T> From<PoisonError<MutexGuard<'_, T>>> for NetworkError {
     }
 }
 
-impl From<SendError<SocketInstruction>> for NetworkError {
-    fn from(err: SendError<SocketInstruction>) -> Self {
-        InternalError(InternalErrorKind::SendSocketInstructionError(
+impl From<SendError<WorkerInstructions>> for NetworkError {
+    fn from(err: SendError<WorkerInstructions>) -> Self {
+        InternalError(InternalErrorKind::SendWorkerInstructionsError(
             err.to_string(),
         ))
     }
@@ -74,9 +74,9 @@ impl Display for InternalErrorKind {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> fmt::Result {
         match self {
             InternalErrorKind::MutexLockError => write!(fmt, "A lock could not be acquired."),
-            InternalErrorKind::SendSocketInstructionError(e) => write!(
+            InternalErrorKind::SendWorkerInstructionsError(e) => write!(
                 fmt,
-                "A socket instruction could not be sent to the worker thread ({})",
+                "A worker instruction could not be sent to the worker thread ({})",
                 e
             ),
             InternalErrorKind::SendMessageError(e) => write!(

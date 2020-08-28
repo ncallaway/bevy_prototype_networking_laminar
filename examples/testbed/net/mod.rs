@@ -108,7 +108,11 @@ fn handle_sync_messages_events(
         return;
     }
 
-    for event in state.sync_messages_events.iter(&sync_messages_events) {
+    if let Some(event) = state
+        .sync_messages_events
+        .iter(&sync_messages_events)
+        .next()
+    {
         let server_messages = &event.messages;
 
         let mut client_borrow = client_messages.iter();
@@ -136,25 +140,22 @@ fn handle_sync_messages_events(
         // for (e, _) in client_iter {
         //     commands.despawn(e);
         // }
-
-        // we only process one sync_message_event per frame to avoid double-spawning messages
-        break;
     }
 }
 
 impl ConnectionInfo {
     pub fn is_server(&self) -> bool {
-        return match &self {
+        match &self {
             ConnectionInfo::Server { .. } => true,
             _ => false,
-        };
+        }
     }
 
     pub fn is_client(&self) -> bool {
-        return match &self {
+        match &self {
             ConnectionInfo::Client { .. } => true,
             _ => false,
-        };
+        }
     }
 }
 
@@ -182,7 +183,7 @@ fn parse_args() -> ConnectionInfo {
         .expect("The socket address wasn't a valid format");
 
     if is_server {
-        return ConnectionInfo::Server { addr: addr };
+        return ConnectionInfo::Server { addr };
     }
 
     if args.len() < 4 {
@@ -203,9 +204,9 @@ fn parse_args() -> ConnectionInfo {
         panic!("The client name must be < 6 characters");
     }
 
-    return ConnectionInfo::Client {
+    ConnectionInfo::Client {
         name: client_name.clone(),
-        addr: addr,
+        addr,
         server: server_addr,
-    };
+    }
 }

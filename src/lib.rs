@@ -1,19 +1,21 @@
 use bevy::prelude::*;
 
 use crossbeam_channel::{Receiver, Sender};
+use std::fmt;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::Mutex;
-use std::time::Duration;
 
-use laminar::{Config, Socket};
+use laminar::Socket;
 
 use bytes::Bytes;
 use uuid::Uuid;
 
 mod error;
+mod transport;
 mod worker;
 
 pub use error::NetworkError;
+pub use transport::{LaminarConfig, Transport};
 
 pub struct NetworkingPlugin;
 
@@ -32,6 +34,12 @@ impl SocketHandle {
 pub struct Connection {
     pub addr: SocketAddr,
     pub socket: SocketHandle,
+}
+
+impl fmt::Display for Connection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.addr)
+    }
 }
 
 #[derive(Debug)]
@@ -57,7 +65,7 @@ pub struct NetworkResource {
     connections: Vec<Connection>,
     event_rx: Mutex<Receiver<NetworkEvent>>,
     message_tx: Mutex<Sender<Message>>,
-    instruction_tx: Mutex<Sender<SocketInstruction>>,
+    instruction_tx: Mutex<Sender<WorkerInstructions>>,
 }
 
 impl Plugin for NetworkingPlugin {
@@ -72,16 +80,15 @@ impl Plugin for NetworkingPlugin {
 
 impl NetworkResource {
     pub fn connections(&self) -> &Vec<Connection> {
-        return &self.connections;
+        &self.connections
     }
 
     pub fn connections_for_socket(&self, socket: SocketHandle) -> Vec<Connection> {
-        return self
-            .connections
+        self.connections
             .iter()
             .filter(|c| c.socket == socket)
-            .map(|c| *c)
-            .collect();
+            .cloned()
+            .collect()
     }
 
     pub fn add_connection(&mut self, connection: Connection) {
@@ -111,15 +118,30 @@ impl NetworkResource {
     }
 
     pub fn bind<A: ToSocketAddrs>(&mut self, addr: A) -> Result<SocketHandle, NetworkError> {
-        let mut cfg = Config::default();
-        cfg.idle_connection_timeout = Duration::from_millis(2000);
-        cfg.heartbeat_interval = Some(Duration::from_millis(1000));
-        cfg.max_packets_in_flight = 2048;
+        self.bind_with_transport(addr, Transport::Laminar(LaminarConfig::default()))
+    }
+
+    pub fn bind_with_transport<A: ToSocketAddrs>(
+        &mut self,
+        addr: A,
+        transport: Transport,
+    ) -> Result<SocketHandle, NetworkError> {
+        match transport {
+            Transport::Laminar(config) => self.bind_with_laminar(addr, config),
+        }
+    }
+
+    fn bind_with_laminar<A: ToSocketAddrs>(
+        &mut self,
+        addr: A,
+        config: LaminarConfig,
+    ) -> Result<SocketHandle, NetworkError> {
+        let cfg = config.into();
 
         let handle = SocketHandle::new();
         let socket = Socket::bind_with_config(addr, cfg)?;
 
-        let instruction = SocketInstruction::AddSocket(handle, socket);
+        let instruction = WorkerInstructions::AddSocket(handle, socket);
         {
             let locked = self.instruction_tx.lock()?;
             locked.send(instruction)?;
@@ -131,7 +153,7 @@ impl NetworkResource {
             self.default_socket = Some(handle);
         }
 
-        return Ok(handle);
+        Ok(handle)
     }
 
     pub fn send(
@@ -158,7 +180,7 @@ impl NetworkResource {
 
         let msg = Message {
             destination: addr,
-            delivery: delivery,
+            delivery,
             socket_handle: socket,
             message: Bytes::copy_from_slice(message),
         };
@@ -181,7 +203,7 @@ impl NetworkResource {
         for conn in broadcast_to {
             let msg = Message {
                 destination: conn.addr,
-                delivery: delivery,
+                delivery,
                 socket_handle: socket,
                 message: Bytes::copy_from_slice(message),
             };
@@ -207,6 +229,13 @@ impl NetworkResource {
     }
 }
 
+impl Drop for NetworkResource {
+    fn drop(&mut self) {
+        let locked = self.instruction_tx.lock().unwrap();
+        locked.send(WorkerInstructions::Terminate).unwrap();
+    }
+}
+
 #[derive(Default)]
 pub struct SendConfig {
     pub socket: Option<SocketHandle>, // if none, use the default socket
@@ -220,8 +249,9 @@ struct Message {
     destination: SocketAddr,
 }
 
-enum SocketInstruction {
+enum WorkerInstructions {
     AddSocket(SocketHandle, Socket),
+    Terminate,
 }
 
 fn process_network_events(
@@ -266,5 +296,25 @@ fn process_network_events(
     for conn in removed_connections {
         net.remove_connection(conn);
         network_events.send(NetworkEvent::Disconnected(conn));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn network_resource_has_no_default_connections() {
+        let network_resource = worker::start_worker_thread();
+
+        assert!(network_resource.default_socket.is_none());
+        assert!(network_resource.bound_sockets.is_empty());
+    }
+
+    #[test]
+    fn binding_network_resource_sets_the_default_socket() {
+        let mut network_resource = worker::start_worker_thread();
+
+        assert!(network_resource.bind("127.0.0.1:12591").is_ok());
+        assert!(network_resource.default_socket.is_some());
     }
 }

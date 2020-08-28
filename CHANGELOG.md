@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - Multiple sockets [#2](https://github.com/ncallaway/bevy_prototype_networking_laminar/issues/2)
+- Ability to set some Laminar config options [#8](https://github.com/ncallaway/bevy_prototype_networking_laminar/issues/8)
 
 ### Changed
 
