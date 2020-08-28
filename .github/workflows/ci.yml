@@ -1,16 +1,16 @@
 name: CI
 
-on: [push, pull_request]
+on: [pull_request]
 
 jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
     steps:
-      - name: checkout
+      - name: Checkout
         uses: actions/checkout@v2
 
-      - name: toolchain
+      - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -22,7 +22,7 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-test-stable-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: install alsa
+      - name: Install alsa
         run: sudo apt-get install --no-install-recommends libasound2-dev
 
       - name: cargo test
@@ -35,10 +35,10 @@ jobs:
     name: Lints
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
+      - name: Checkout Sources
         uses: actions/checkout@v2
 
-      - name: Install stable toolchain
+      - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
