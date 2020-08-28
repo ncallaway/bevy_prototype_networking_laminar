@@ -5,53 +5,29 @@ use bevy_prototype_networking_laminar::{
 };
 
 use std::net::SocketAddr;
+use std::time::Duration;
 
 const SERVER: &str = "127.0.0.1:12351";
 const CLIENT: &str = "127.0.0.1:12350";
 
 fn main() {
     App::build()
+        .add_plugin(bevy::type_registry::TypeRegistryPlugin::default())
+        .add_plugin(bevy::core::CorePlugin)
+        .add_plugin(bevy::app::ScheduleRunnerPlugin::run_loop(
+            Duration::from_secs_f64(1.0 / 60.0),
+        ))
+        .add_plugin(NetworkingPlugin)
         .init_resource::<EventListenerState>()
         .init_resource::<SendTimerState>()
         .init_resource::<Sockets>()
-        .add_default_plugins()
-        .add_plugin(NetworkingPlugin)
-        .add_startup_system(startup_system.system())
-        .add_system(print_messages_system.system())
+        .add_startup_system(startup.system())
+        .add_system(print_messages.system())
         .add_system(send_messages.system())
         .run();
 }
 
-fn print_messages_system(
-    mut state: ResMut<EventListenerState>,
-    sockets: Res<Sockets>,
-    my_events: Res<Events<NetworkEvent>>,
-) {
-    if let Some(server) = sockets.server {
-        if let Some(client) = sockets.client {
-            for event in state.network_events.iter(&my_events) {
-                match event {
-                    NetworkEvent::Message(conn, data) => {
-                        let msg = String::from_utf8_lossy(data);
-
-                        let from = if conn.socket == server {
-                            "SERVER"
-                        } else if conn.socket == client {
-                            "CLIENT"
-                        } else {
-                            "UNKNOWN"
-                        };
-
-                        println!("\t ---> [{}] {:?}\n", from, msg);
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-}
-
-fn startup_system(mut net: ResMut<NetworkResource>, mut sockets: ResMut<Sockets>) {
+fn startup(mut net: ResMut<NetworkResource>, mut sockets: ResMut<Sockets>) {
     sockets.server = Some(net.bind(SERVER).unwrap());
     sockets.client = Some(net.bind(CLIENT).unwrap());
 }
@@ -74,15 +50,46 @@ fn send_messages(
         };
 
         println!("[{}] ---> {:?}", who, message);
-        net.send_with_config(
+        let _ = net.send_with_config(
             to,
             message.as_bytes(),
             NetworkDelivery::ReliableSequenced(Some(1)),
-            SendConfig { socket: socket },
+            SendConfig { socket },
         );
         state.from_server = from_server;
 
         state.message_timer.reset();
+    }
+}
+
+fn print_messages(
+    mut state: ResMut<EventListenerState>,
+    sockets: Res<Sockets>,
+    my_events: Res<Events<NetworkEvent>>,
+) {
+    if let Some(server) = sockets.server {
+        if let Some(client) = sockets.client {
+            for event in state.network_events.iter(&my_events) {
+                #[allow(clippy::single_match)]
+                match event {
+                    NetworkEvent::Message(conn, data) => {
+                        let msg = String::from_utf8_lossy(data);
+
+                        let from = if conn.socket == server {
+                            "SERVER"
+                        } else if conn.socket == client {
+                            "CLIENT"
+                        } else {
+                            "UNKNOWN"
+                        };
+
+                        println!("\t ---> [{}] {:?}\n", from, msg);
+                    }
+                    NetworkEvent::Connected(conn) => println!("\t {} connected", conn),
+                    _ => {}
+                }
+            }
+        }
     }
 }
 

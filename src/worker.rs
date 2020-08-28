@@ -9,7 +9,7 @@ use bytes::Bytes;
 use laminar::{Packet, Socket, SocketEvent};
 
 use super::error::NetworkError;
-use super::{Connection, Message, NetworkEvent, NetworkResource, SocketHandle, SocketInstruction};
+use super::{Connection, Message, NetworkEvent, NetworkResource, SocketHandle, WorkerInstructions};
 
 const SEND_EXPECT: &str =
     "The networking worker thread is no longer able to send messages back to the receiver.";
@@ -17,8 +17,10 @@ const SEND_EXPECT: &str =
 pub fn start_worker_thread() -> NetworkResource {
     let (event_tx, event_rx): (Sender<NetworkEvent>, Receiver<NetworkEvent>) = mpsc::channel();
     let (message_tx, message_rx): (Sender<Message>, Receiver<Message>) = mpsc::channel();
-    let (instruction_tx, instruction_rx): (Sender<SocketInstruction>, Receiver<SocketInstruction>) =
-        mpsc::channel();
+    let (instruction_tx, instruction_rx): (
+        Sender<WorkerInstructions>,
+        Receiver<WorkerInstructions>,
+    ) = mpsc::channel();
 
     let mut sockets = TrackedSockets {
         sockets: Vec::new(),
@@ -36,37 +38,54 @@ pub fn start_worker_thread() -> NetworkResource {
     };
 
     let mut start = std::time::Instant::now();
+    let mut end = std::time::Instant::now();
 
     thread::spawn(move || loop {
         let millis = start.elapsed().as_millis();
         if millis > 50 {
-            println!("worker elapsed: {:?}", start.elapsed());
+            println!(
+                "warning: thread worker loop took {:.3?} ({:.3?} after sleeping)",
+                start.elapsed(),
+                end.elapsed()
+            );
         }
+
         start = std::time::Instant::now();
 
-        handle_instructions(&mut sockets, &instruction_rx);
+        let should_terminate = handle_instructions(&mut sockets, &instruction_rx);
+        if should_terminate {
+            break;
+        }
         poll_sockets(&mut sockets);
         send_messages(&mut sockets, &message_rx, &event_tx);
         receive_messages(&mut sockets, &event_tx);
+
+        end = std::time::Instant::now();
 
         // go dark
         std::thread::sleep(sleep_time);
     });
 
-    return resource;
+    resource
 }
 
-fn handle_instructions(sockets: &mut TrackedSockets, instruction_rx: &Receiver<SocketInstruction>) {
+fn handle_instructions(
+    sockets: &mut TrackedSockets,
+    instruction_rx: &Receiver<WorkerInstructions>,
+) -> bool {
     while let Ok(instruction) = instruction_rx.try_recv() {
         match instruction {
-            SocketInstruction::AddSocket(handle, socket) => {
+            WorkerInstructions::AddSocket(handle, socket) => {
                 sockets.add_socket(handle, socket);
             } // future work: allow manual closing of sockets
-              // SocketInstruction::CloseSocket(handle) => {
-              //     sockets.close_socket(handle);
-              // }
+            // WorkerInstructions::CloseSocket(handle) => {
+            //     sockets.close_socket(handle);
+            // }
+            WorkerInstructions::Terminate => return true,
         }
     }
+
+    false
 }
 
 fn poll_sockets(sockets: &mut TrackedSockets) {
@@ -105,11 +124,11 @@ fn receive_messages(sockets: &mut TrackedSockets, event_tx: &Sender<NetworkEvent
         while let Some(event) = socket.recv() {
             let e = match event {
                 SocketEvent::Connect(addr) => Some(NetworkEvent::Connected(Connection {
-                    addr: addr,
+                    addr,
                     socket: *socket_handle,
                 })),
                 SocketEvent::Timeout(addr) => Some(NetworkEvent::Disconnected(Connection {
-                    addr: addr,
+                    addr,
                     socket: *socket_handle,
                 })),
                 SocketEvent::Packet(packet) => Some(NetworkEvent::Message(
@@ -136,7 +155,7 @@ struct TrackedSockets {
 
 impl TrackedSockets {
     pub fn iter_mut(&mut self) -> std::slice::IterMut<(SocketHandle, Socket)> {
-        return self.sockets.iter_mut();
+        self.sockets.iter_mut()
     }
 
     pub fn add_socket(&mut self, handle: SocketHandle, socket: Socket) {
@@ -148,7 +167,7 @@ impl TrackedSockets {
             return;
         }
 
-        return self.sockets.push((handle, socket));
+        self.sockets.push((handle, socket));
     }
 
     // pub fn close_socket(&mut self, handle: SocketHandle) {
@@ -165,17 +184,14 @@ impl TrackedSockets {
     // }
 
     pub fn has_socket(&self, handle: SocketHandle) -> bool {
-        return match self.get_socket(handle) {
-            Ok(_) => true,
-            Err(_) => false,
-        };
+        self.get_socket(handle).is_ok()
     }
 
     pub fn get_socket(&self, handle: SocketHandle) -> Result<&Socket, NetworkError> {
         self.sockets
             .iter()
             .find(|(h, _)| handle == *h)
-            .and_then(|(_, s)| Some(s))
+            .map(|(_, s)| s)
             .ok_or(NetworkError::NoSocket(handle))
     }
 
@@ -183,7 +199,7 @@ impl TrackedSockets {
         self.sockets
             .iter_mut()
             .find(|(h, _)| handle == *h)
-            .and_then(|(_, s)| Some(s))
+            .map(|(_, s)| s)
             .ok_or(NetworkError::NoSocket(handle))
     }
 }
