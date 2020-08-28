@@ -104,12 +104,13 @@ The simple example shows a very bare bones `bevy` application that will send mes
 - `cargo run --example simple -- -c` start a client
 
 ```
-Network Event: Message(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } }, b"How are things over there?")
-Network Event: Connected(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } })
-Network Event: Disconnected(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } })
-Network Event: Message(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } }, b"How are things over there?")
-Network Event: Connected(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } })
-Network Event: Disconnected(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } })
+$ cargo run --example simple -- -s
+---> "How are things over there?"
+<--- "Good." from 127.0.0.1:12350
+        Connected: 127.0.0.1:12350
+---> "How are things over there?"
+<--- "Good." from 127.0.0.1:12350
+---> "How are things over there?"
 ```
 
 ### multisocket
