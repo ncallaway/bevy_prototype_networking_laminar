@@ -350,6 +350,7 @@ dependencies = [
  "bincode",
  "bytes",
  "cargo-husky",
+ "crossbeam-channel 0.4.3",
  "laminar",
  "rand",
  "serde",
