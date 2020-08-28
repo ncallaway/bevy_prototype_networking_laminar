@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::game::{Cube, Message};
+use super::game::{Cube, Note};
 
 use std::net::SocketAddr;
 
@@ -19,12 +19,12 @@ pub struct ClientUpdateEvent {
 }
 
 #[derive(Debug)]
-pub struct SyncMessagesEvent {
-    messages: Vec<Message>,
+pub struct SyncNotesEvent {
+    notes: Vec<Note>,
 }
 #[derive(Default)]
-pub struct CreateMessages {
-    pub messages: Vec<String>,
+pub struct CreateNotes {
+    pub notes: Vec<String>,
 }
 
 pub enum ConnectionInfo {
@@ -42,20 +42,20 @@ pub fn build(app: &mut AppBuilder) {
     prototype::build(app);
     app.add_event::<CubePositionEvent>()
         .add_event::<ClientUpdateEvent>()
-        .add_event::<SyncMessagesEvent>()
+        .add_event::<SyncNotesEvent>()
         .init_resource::<EventListenerState>()
-        .init_resource::<CreateMessages>()
+        .init_resource::<CreateNotes>()
         .add_resource(parse_args())
         .add_system(handle_cube_events.system())
         .add_system(handle_client_update_events.system())
-        .add_system(handle_sync_messages_events.system());
+        .add_system(handle_sync_notes_events.system());
 }
 
 #[derive(Default)]
 struct EventListenerState {
     cube_events: EventReader<CubePositionEvent>,
     client_update_events: EventReader<ClientUpdateEvent>,
-    sync_messages_events: EventReader<SyncMessagesEvent>,
+    sync_notes_events: EventReader<SyncNotesEvent>,
 }
 
 // todo: the testbed relies on having just one cube, and the client/server setup being the same
@@ -89,7 +89,7 @@ fn handle_client_update_events(
     }
 
     for event in state.client_update_events.iter(&client_update_events) {
-        commands.spawn((Message::new(
+        commands.spawn((Note::new(
             &event.update,
             &format!("client {}", event.from),
             255,
@@ -97,41 +97,37 @@ fn handle_client_update_events(
     }
 }
 
-fn handle_sync_messages_events(
+fn handle_sync_notes_events(
     mut commands: Commands,
     ci: Res<ConnectionInfo>,
     mut state: ResMut<EventListenerState>,
-    sync_messages_events: Res<Events<SyncMessagesEvent>>,
-    mut client_messages: Query<(Entity, &mut Message)>,
+    sync_notes_events: Res<Events<SyncNotesEvent>>,
+    mut client_notes: Query<(Entity, &mut Note)>,
 ) {
     if ci.is_server() {
         return;
     }
 
-    if let Some(event) = state
-        .sync_messages_events
-        .iter(&sync_messages_events)
-        .next()
-    {
-        let server_messages = &event.messages;
+    if let Some(event) = state.sync_notes_events.iter(&sync_notes_events).next() {
+        let server_notes = &event.notes;
 
-        let mut client_borrow = client_messages.iter();
+        let mut client_borrow = client_notes.iter();
         let mut client_iter = client_borrow.into_iter();
 
-        for server_message in &mut server_messages.iter() {
-            let has_message = client_iter.next();
+        for server_note in &mut server_notes.iter() {
+            let has_note = client_iter.next();
 
-            match has_message {
-                Some((_, mut client_message)) => {
-                    client_message.from = server_message.from.clone();
-                    client_message.message = server_message.message.clone();
-                    client_message.ordinal = server_message.ordinal;
+            match has_note {
+                Some((_, mut client_note)) => {
+                    client_note.from = server_note.from.clone();
+                    client_note.note = server_note.note.clone();
+                    client_note.ordinal = server_note.ordinal;
                 }
                 None => {
-                    commands.spawn((Message::new(
-                        &server_message.message,
-                        &server_message.from,
-                        server_message.ordinal,
+                    commands.spawn((Note::new(
+                        &server_note.note,
+                        &server_note.from,
+                        server_note.ordinal,
                     ),));
                 }
             }

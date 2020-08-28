@@ -3,20 +3,20 @@ use bevy::prelude::*;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
-use super::net::{ConnectionInfo, CreateMessages};
+use super::net::{ConnectionInfo, CreateNotes};
 
 // game stuff
 #[derive(Properties, Default, PartialEq, Debug, Clone, Serialize, Deserialize)]
-pub struct Message {
-    pub message: String,
+pub struct Note {
+    pub note: String,
     pub from: String,
     pub ordinal: u8,
 }
 
-impl Message {
-    pub fn new(message: &str, from: &str, ordinal: u8) -> Message {
-        Message {
-            message: message.to_string(),
+impl Note {
+    pub fn new(note: &str, from: &str, ordinal: u8) -> Note {
+        Note {
+            note: note.to_string(),
             from: from.to_string(),
             ordinal,
         }
@@ -28,8 +28,8 @@ pub struct Cube;
 pub fn build(app: &mut AppBuilder) {
     app.add_startup_system(setup.system())
         .add_system(move_cube_system.system())
-        .add_system(add_message_system.system())
-        .add_system(message_compact_system.system());
+        .add_system(add_note_system.system())
+        .add_system_to_stage(super::ui::stages::DOMAIN_SYNC, note_compact_system.system());
 }
 
 fn setup(
@@ -71,8 +71,8 @@ fn setup(
             ..Default::default()
         });
     if server {
-        commands.spawn((Message {
-            message: "starting".to_string(),
+        commands.spawn((Note {
+            note: "starting".to_string(),
             from: "server".to_string(),
             ordinal: 0,
         },));
@@ -118,47 +118,47 @@ fn move_cube_system(
     }
 }
 
-fn message_compact_system(mut messages: Query<&mut Message>) {
-    let mut i = messages.iter();
-    let mut sorted_displays: Vec<Mut<Message>> = i.into_iter().collect();
+fn note_compact_system(mut notes: Query<&mut Note>) {
+    let mut i = notes.iter();
+    let mut sorted_displays: Vec<Mut<Note>> = i.into_iter().collect();
 
     sorted_displays.sort_by(|a, b| a.ordinal.cmp(&b.ordinal));
 
     let mut needs_compact = false;
 
-    for (next, message) in sorted_displays.iter().enumerate() {
-        if message.ordinal != next as u8 {
+    for (next, note) in sorted_displays.iter().enumerate() {
+        if note.ordinal != next as u8 {
             needs_compact = true;
         }
     }
 
     if needs_compact {
-        for (next, message) in &mut sorted_displays.iter_mut().enumerate() {
-            message.ordinal = next as u8;
+        for (next, note) in &mut sorted_displays.iter_mut().enumerate() {
+            note.ordinal = next as u8;
         }
     }
 }
 
-fn add_message_system(
+fn add_note_system(
     mut commands: Commands,
     ci: Res<ConnectionInfo>,
-    mut network_create_messages: ResMut<CreateMessages>,
+    mut network_create_notes: ResMut<CreateNotes>,
     mut interaction_query: Query<(&Button, Mutated<Interaction>)>,
 ) {
     for (_button, interaction) in &mut interaction_query.iter() {
         if let Interaction::Clicked = *interaction {
             if ci.is_server() {
-                // immediately create the message
-                commands.spawn((Message::new(&random_message(), "server", 255),));
+                // immediately create the note
+                commands.spawn((Note::new(&random_phrase(), "server", 255),));
             } else {
-                // schedule the message to be sent to the server
-                network_create_messages.messages.push(random_message());
+                // schedule the note to be sent to the server
+                network_create_notes.notes.push(random_phrase());
             }
         }
     }
 }
 
-fn random_message() -> String {
+fn random_phrase() -> String {
     let msgs = [
         "Lorem ipsum dolor sit amet",
         "consectetur adipiscing elit",

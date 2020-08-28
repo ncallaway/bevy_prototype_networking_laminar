@@ -85,7 +85,7 @@ The testbed is also is intended to serve as a testbed for any other networking p
 When on the server, you:
 
 - can control the position of the cube with `WASD`
-- can click the "send a message" button to add random message to the `MESSAGES` list
+- can click the "send a note" button to add random note to the `NOTES` list
 
 #### Client
 
@@ -93,8 +93,8 @@ When on the client, you:
 
 - cannot control the position of the cube
 - the cube's position should be syncrhonized with the server
-- you can click the "send a message" button to add a random message to the `MESSAGES` list
-- the `MESSAGES` list is syncrhonized with the server.
+- you can click the "send a note" button to add a random note to the `NOTES` list
+- the `NOTES` list is syncrhonized with the server.
 
 ### simple
 
@@ -104,12 +104,13 @@ The simple example shows a very bare bones `bevy` application that will send mes
 - `cargo run --example simple -- -c` start a client
 
 ```
-Network Event: Message(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } }, b"How are things over there?")
-Network Event: Connected(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } })
-Network Event: Disconnected(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } })
-Network Event: Message(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } }, b"How are things over there?")
-Network Event: Connected(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } })
-Network Event: Disconnected(Connection { addr: V4(127.0.0.1:12351), socket: SocketHandle { identifier: 0 } })
+$ cargo run --example simple -- -s
+---> "How are things over there?"
+<--- "Good." from 127.0.0.1:12350
+        Connected: 127.0.0.1:12350
+---> "How are things over there?"
+<--- "Good." from 127.0.0.1:12350
+---> "How are things over there?"
 ```
 
 ### multisocket
@@ -136,7 +137,6 @@ The current prototype implementation is extremely rough and early. The current w
 - **Improve testbed**: The testbed has a number of areas that could be improved
   - **Repository split**: If other projects have interest in using the testbed, split it out into it's own create/repository.
   - **[#4 Code cleanup: net/prototype interface](https://github.com/ncallaway/bevy_prototype_networking_laminar/issues/4)**: The testbed has some rough areas in the split between the `net/mod.rs` and `net/prototype.rs`. Consider cleaning up this interface to make it cleaner to implement a plugin integration
-  - **[#5 Code cleanup: Rename Messages](https://github.com/ncallaway/bevy_prototype_networking_laminar/issues/5)**: For a networking testbed, having a domain entity called `Message` is unreasonably burdensom. Rename these to something that doesn't have a networking connotation.
   - **[#6 Code cleanup: Message sync](https://github.com/ncallaway/bevy_prototype_networking_laminar/issues/6)**: The messages are currently fully serialized whenever a message is changed. Clean this up to be a better representation of the desired sync model so that the server only sends the changes on a `Reliable` channel, and the Client can request the full list of messages when they connect, or need to reset their state.
   - **Explore additional prototypical network interactions**: The server sync'd cube example relies on there being a single cube. Consider introducing something that has multiple copies being sync'd to demonstrate sharing stable IDs across the network. Find other ways to expand the testbed to be more representative of the needs of real games.
 - **Explore additional useful networking features**: `amethyst-network` exposes a `network simulation time`, which helps synchornize time and track `frame lag` when sending network messages over the system. Explore this concept, and other common networking tasks that would be useful in a low-level networking plugin.

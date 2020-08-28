@@ -8,10 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use std::net::SocketAddr;
 
-use super::super::game::{Cube, Message};
-use super::{
-    ClientUpdateEvent, ConnectionInfo, CreateMessages, CubePositionEvent, SyncMessagesEvent,
-};
+use super::super::game::{Cube, Note};
+use super::{ClientUpdateEvent, ConnectionInfo, CreateNotes, CubePositionEvent, SyncNotesEvent};
 
 // if false, we will serialize using bincode instead
 const SERIALIZE_JSON: bool = true;
@@ -23,8 +21,8 @@ pub fn build(app: &mut AppBuilder) {
         .add_startup_system(initial_connection_system.system())
         .add_system(send_cube_position_system.system())
         .add_system(handle_network_events.system())
-        .add_system(send_create_message_system.system())
-        .add_system_to_stage("prototype_after", send_message_update_system.system());
+        .add_system(send_create_note_system.system())
+        .add_system_to_stage("prototype_after", send_note_update_system.system());
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -33,8 +31,8 @@ enum TestbedMessage {
     Pong,
     Disconnecting,
     CubePosition(f32, f32, f32),
-    CreateMessage(String),
-    SyncMessages { messages: Vec<Message> },
+    CreateNote(String),
+    SyncNotes { notes: Vec<Note> },
 }
 
 fn initial_connection_system(ci: Res<ConnectionInfo>, net: ResMut<NetworkResource>) {
@@ -44,18 +42,18 @@ fn initial_connection_system(ci: Res<ConnectionInfo>, net: ResMut<NetworkResourc
     }
 }
 
-fn send_message_update_system(
+fn send_note_update_system(
     ci: Res<ConnectionInfo>,
     net: Res<NetworkResource>,
-    mut changed_query: Query<(Changed<Message>,)>,
-    all_messages_query: Query<&Message>,
+    mut changed_query: Query<(Changed<Note>,)>,
+    all_notes_query: Query<&Note>,
 ) {
     if ci.is_client() {
         return;
     }
 
     if changed_query.iter().into_iter().next().is_some() {
-        broadcast_all_messages(net, all_messages_query);
+        broadcast_all_notes(net, all_notes_query);
     }
 }
 
@@ -82,23 +80,23 @@ fn send_cube_position_system(
     }
 }
 
-fn send_create_message_system(
+fn send_create_note_system(
     ci: Res<ConnectionInfo>,
     net: Res<NetworkResource>,
-    mut network_create_messages: ResMut<CreateMessages>,
+    mut network_create_notes: ResMut<CreateNotes>,
 ) {
     if let ConnectionInfo::Client { server, .. } = &(*ci) {
-        for msg in &network_create_messages.messages {
+        for msg in &network_create_notes.notes {
             net.send(
                 *server,
-                &TestbedMessage::CreateMessage(msg.clone()).encode()[..],
+                &TestbedMessage::CreateNote(msg.clone()).encode()[..],
                 NetworkDelivery::ReliableOrdered(Some(1)),
             )
-            .expect("Create message failed to send");
+            .expect("Create note failed to send");
         }
     }
 
-    network_create_messages.messages.clear();
+    network_create_notes.notes.clear();
 }
 
 #[derive(Default)]
@@ -119,7 +117,7 @@ fn handle_network_events(
     network_events: Res<Events<NetworkEvent>>,
     mut cube_events: ResMut<Events<CubePositionEvent>>,
     mut client_update_events: ResMut<Events<ClientUpdateEvent>>,
-    mut sync_messages_events: ResMut<Events<SyncMessagesEvent>>,
+    mut sync_notes_events: ResMut<Events<SyncNotesEvent>>,
     mut players: ResMut<Players>,
 ) {
     for event in state.network_events.iter(&network_events) {
@@ -137,15 +135,15 @@ fn handle_network_events(
                     TestbedMessage::CubePosition(x, y, z) => {
                         handle_cube_position_event(x, y, z, &mut cube_events)
                     }
-                    TestbedMessage::CreateMessage(msg) => handle_create_message_event(
+                    TestbedMessage::CreateNote(msg) => handle_create_note_event(
                         msg,
                         *conn,
                         &ci,
                         &mut client_update_events,
                         &mut players,
                     ),
-                    TestbedMessage::SyncMessages { messages } => {
-                        handle_sync_messages_event(messages, &ci, &mut sync_messages_events)
+                    TestbedMessage::SyncNotes { notes } => {
+                        handle_sync_notes_event(notes, &ci, &mut sync_notes_events)
                     }
                     _ => {}
                 }
@@ -191,7 +189,7 @@ fn handle_cube_position_event(
     cube_events.send(CubePositionEvent(x, y, z));
 }
 
-fn handle_create_message_event(
+fn handle_create_note_event(
     msg: String,
     conn: Connection,
     ci: &Res<ConnectionInfo>,
@@ -208,26 +206,26 @@ fn handle_create_message_event(
     }
 }
 
-fn handle_sync_messages_event(
-    messages: Vec<Message>,
+fn handle_sync_notes_event(
+    notes: Vec<Note>,
     ci: &Res<ConnectionInfo>,
-    sync_messages_events: &mut ResMut<Events<SyncMessagesEvent>>,
+    sync_notes_events: &mut ResMut<Events<SyncNotesEvent>>,
 ) {
     if ci.is_client() {
-        sync_messages_events.send(SyncMessagesEvent { messages })
+        sync_notes_events.send(SyncNotesEvent { notes })
     }
 }
 
-fn broadcast_all_messages(net: Res<NetworkResource>, mut messages_query: Query<&Message>) {
-    let mut messages = Vec::new();
-    for msg in &mut messages_query.iter() {
-        messages.push(msg.clone());
+fn broadcast_all_notes(net: Res<NetworkResource>, mut notes_query: Query<&Note>) {
+    let mut notes = Vec::new();
+    for msg in &mut notes_query.iter() {
+        notes.push(msg.clone());
     }
 
-    let sync_messages = TestbedMessage::SyncMessages { messages };
+    let sync_notes = TestbedMessage::SyncNotes { notes };
 
     let _ = net.broadcast(
-        &sync_messages.encode()[..],
+        &sync_notes.encode()[..],
         NetworkDelivery::ReliableSequenced(Some(1)),
     );
 }
