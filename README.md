@@ -11,7 +11,7 @@ This is a prototype of a networking crate for [`bevy`](https://github.com/bevyen
 
 1. Add `bevy_prototype_networking_laminar` to `Cargo.toml`
 
-```
+```toml
 [dependencies]
 bevy = "0.1"
 bevy_prototype_networking_laminar = "0.1"
@@ -19,7 +19,7 @@ bevy_prototype_networking_laminar = "0.1"
 
 2. Add the NetworkPlugin to your `bevy` app setup
 
-```
+```rust
 use bevy_prototype_networking_laminar::NetworkingPlugin;
 
 ...
@@ -32,7 +32,7 @@ app
 
 3. Use the NetworkResource to bind to a socket and send/broadcast messages
 
-```
+```rust
 fn startup_system(net: ResMut<NetworkResource>) {
   net.bind("127.0.0.1:12350").unwrap();
 }
@@ -44,7 +44,7 @@ fn greeting_system(net: Res<NetworkResource>) {
 
 4. Listen for `NetworkEvent`s to receive incoming messages
 
-```
+```rust
 #[derive(Default)]
 struct NetworkListenerState {
     network_events: EventReader<NetworkEvent>,
