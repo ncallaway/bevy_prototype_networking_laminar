@@ -6,8 +6,6 @@ use super::game::Note;
 
 const UI_BACKGROUND: Color = Color::rgba(0.0, 0.0, 0.0, 0.9);
 
-struct ContainerEntity(Entity);
-
 struct ButtonMaterials {
     normal: Handle<ColorMaterial>,
     hovered: Handle<ColorMaterial>,
@@ -45,7 +43,6 @@ pub mod stages {
 pub fn build(app: &mut AppBuilder) {
     app.init_resource::<ButtonMaterials>()
         .init_resource::<Handle<Font>>()
-        .add_resource(ContainerEntity(Entity::new()))
         .add_startup_system(setup_ui.system())
         .add_stage_before(stage::UPDATE, stages::USER_EVENTS)
         .add_stage_after(stage::UPDATE, stages::DOMAIN_EVENTS)
@@ -61,15 +58,11 @@ fn setup_ui(
     asset_server: Res<AssetServer>,
     mut font_handle: ResMut<Handle<Font>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut container: ResMut<ContainerEntity>,
     button_materials: Res<ButtonMaterials>,
 ) {
     *font_handle = asset_server
         .load("assets/fonts/FiraMono-Medium.ttf")
         .unwrap();
-
-    let e = Entity::new();
-    container.0 = e;
 
     commands
         // 2d camera
@@ -129,19 +122,16 @@ fn setup_ui(
                 })
                 .with_children(|parent| {
                     parent
-                        .spawn_as_entity(
-                            e,
-                            NodeComponents {
-                                style: Style {
-                                    size: Size::new(Val::Percent(100.0), Val::Auto),
-                                    justify_content: JustifyContent::FlexStart,
-                                    flex_direction: FlexDirection::Column,
-                                    ..Default::default()
-                                },
-                                material: materials.add(UI_BACKGROUND.into()),
+                        .spawn(NodeComponents {
+                            style: Style {
+                                size: Size::new(Val::Percent(100.0), Val::Auto),
+                                justify_content: JustifyContent::FlexStart,
+                                flex_direction: FlexDirection::Column,
                                 ..Default::default()
                             },
-                        )
+                            material: materials.add(UI_BACKGROUND.into()),
+                            ..Default::default()
+                        })
                         .with(NoteContainer)
                         .spawn(TextComponents {
                             style: Style {
@@ -268,39 +258,33 @@ fn spawn_note_display(
     ordinal: u8,
 ) {
     // have to have a notes container, or we die, sorry.
-    let (container_entity, _) = display_containers.iter().into_iter().next().unwrap();
-    spawn_note_display_with_entity(commands, &font_handle, container_entity, value, ordinal);
+    let (_, _) = display_containers.iter().into_iter().next().unwrap();
+    spawn_note_display_with_entity(commands, &font_handle, value, ordinal);
 }
 
 fn spawn_note_display_with_entity(
     commands: &mut Commands,
     font_handle: &Handle<Font>,
-    container_entity: Entity,
     value: String,
     ordinal: u8,
 ) {
     let md = NoteDisplay { ordinal };
 
-    let e = Entity::new();
     commands
-        .spawn_as_entity(
-            e,
-            TextComponents {
-                style: Style {
-                    align_self: AlignSelf::FlexStart,
-                    ..Default::default()
-                },
-                text: Text {
-                    value,
-                    font: *font_handle,
-                    style: TextStyle {
-                        font_size: 16.0,
-                        color: Color::WHITE,
-                    },
-                },
+        .spawn(TextComponents {
+            style: Style {
+                align_self: AlignSelf::FlexStart,
                 ..Default::default()
             },
-        )
-        .with(md)
-        .push_children(container_entity, &[e]);
+            text: Text {
+                value,
+                font: *font_handle,
+                style: TextStyle {
+                    font_size: 16.0,
+                    color: Color::WHITE,
+                },
+            },
+            ..Default::default()
+        })
+        .with(md);
 }

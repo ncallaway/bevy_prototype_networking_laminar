@@ -52,18 +52,18 @@ fn setup(
         .spawn(PbrComponents {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
-            translation: Translation::new(0.0, 1.0, 0.0),
+            transform: Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
             ..Default::default()
         })
         .with(Cube)
         // light
         .spawn(LightComponents {
-            translation: Translation::new(4.0, 8.0, 4.0),
+            transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0)),
             ..Default::default()
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new_sync_disabled(Mat4::face_toward(
+            transform: Transform::new(Mat4::face_toward(
                 Vec3::new(-2.0, 6.0, 12.0),
                 Vec3::new(-2.0, 0.0, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
@@ -83,7 +83,7 @@ fn move_cube_system(
     time: Res<Time>,
     ci: Res<ConnectionInfo>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut cubes: Query<(&Cube, &mut Translation)>,
+    mut cubes: Query<(&Cube, &mut Transform)>,
 ) {
     if ci.is_client() {
         return;
@@ -111,10 +111,10 @@ fn move_cube_system(
     let delta = Vec3::new(x, 0f32, z) * speed * time.delta_seconds;
 
     for (_cube, mut tx) in &mut cubes.iter() {
-        let mut pos = tx.0 + delta;
+        let mut pos = tx.translation() + delta;
         pos.set_x(pos.x().max(-4.0).min(4.0));
         pos.set_z(pos.z().max(-4.0).min(4.0));
-        tx.0 = pos;
+        tx.set_translation(pos);
     }
 }
 

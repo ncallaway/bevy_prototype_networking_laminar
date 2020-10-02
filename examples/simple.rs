@@ -118,17 +118,11 @@ pub enum ConnectionInfo {
 
 impl ConnectionInfo {
     pub fn is_server(&self) -> bool {
-        match &self {
-            ConnectionInfo::Server => true,
-            _ => false,
-        }
+        matches!(&self, ConnectionInfo::Server)
     }
 
     pub fn is_client(&self) -> bool {
-        match &self {
-            ConnectionInfo::Client => true,
-            _ => false,
-        }
+        matches!(&self, ConnectionInfo::Client)
     }
 }
 

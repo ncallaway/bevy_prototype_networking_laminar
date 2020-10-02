@@ -65,7 +65,7 @@ fn handle_cube_events(
     ci: Res<ConnectionInfo>,
     mut state: ResMut<EventListenerState>,
     cube_events: Res<Events<CubePositionEvent>>,
-    mut query: Query<(&Cube, &mut Translation)>,
+    mut query: Query<(&Cube, &mut Transform)>,
 ) {
     if ci.is_server() {
         return;
@@ -73,7 +73,7 @@ fn handle_cube_events(
 
     for event in state.cube_events.iter(&cube_events) {
         for (_, mut tx) in &mut query.iter() {
-            tx.0 = Vec3::new(event.0, event.1, event.2);
+            tx.set_translation(Vec3::new(event.0, event.1, event.2));
         }
     }
 }
@@ -141,17 +141,11 @@ fn handle_sync_notes_events(
 
 impl ConnectionInfo {
     pub fn is_server(&self) -> bool {
-        match &self {
-            ConnectionInfo::Server { .. } => true,
-            _ => false,
-        }
+        matches!(&self, ConnectionInfo::Server { .. })
     }
 
     pub fn is_client(&self) -> bool {
-        match &self {
-            ConnectionInfo::Client { .. } => true,
-            _ => false,
-        }
+        matches!(&self, ConnectionInfo::Client { .. })
     }
 }
 
