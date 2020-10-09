@@ -13,7 +13,7 @@ categories = ["games", "network-programming"]
 exclude = ["assets/**/*"]
 
 [dependencies]
-bevy = "0.2"
+bevy = { version = "0.2", features = [ "profiler" ] }
 laminar = "0.4"
 crossbeam-channel = "0.4"                   # threaded communication
 bytes = "0.5"                               # plumbing message payloads

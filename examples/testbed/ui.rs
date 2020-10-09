@@ -258,13 +258,14 @@ fn spawn_note_display(
     ordinal: u8,
 ) {
     // have to have a notes container, or we die, sorry.
-    let (_, _) = display_containers.iter().into_iter().next().unwrap();
-    spawn_note_display_with_entity(commands, &font_handle, value, ordinal);
+    let (container_entity, _) = display_containers.iter().into_iter().next().unwrap();
+    spawn_note_display_with_entity(commands, &font_handle, container_entity, value, ordinal);
 }
 
 fn spawn_note_display_with_entity(
     commands: &mut Commands,
     font_handle: &Handle<Font>,
+    container_entity: Entity,
     value: String,
     ordinal: u8,
 ) {
@@ -287,4 +288,6 @@ fn spawn_note_display_with_entity(
             ..Default::default()
         })
         .with(md);
+
+    commands.push_children(container_entity, &[commands.current_entity().unwrap()]);
 }
