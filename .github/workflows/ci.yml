@@ -22,8 +22,8 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-test-stable-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install alsa
-        run: sudo apt-get install --no-install-recommends libasound2-dev
+      - name: Install dependencies
+        run: sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
 
       - name: cargo test
         run: cargo test --all
@@ -46,8 +46,8 @@ jobs:
           override: true
           components: rustfmt, clippy
 
-      - name: Install alsa
-        run: sudo apt-get install --no-install-recommends libasound2-dev
+      - name: Install dependencies
+        run: sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
 
       - name: cargo fmt
         run: cargo fmt --all -- --check
