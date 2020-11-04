@@ -1,4 +1,4 @@
-use bevy::app::ScheduleRunnerPlugin;
+use bevy::app::{ScheduleRunnerPlugin, ScheduleRunnerSettings};
 use bevy::prelude::*;
 
 use std::net::SocketAddr;
@@ -16,7 +16,8 @@ fn main() {
         // minimal plugins necessary for timers + headless loop
         .add_plugin(bevy::type_registry::TypeRegistryPlugin::default())
         .add_plugin(bevy::core::CorePlugin)
-        .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+        .add_plugin(ScheduleRunnerPlugin {})
+        .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
             1.0 / 60.0,
         )))
         // The NetworkingPlugin

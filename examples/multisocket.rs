@@ -4,6 +4,7 @@ use bevy_prototype_networking_laminar::{
     NetworkDelivery, NetworkEvent, NetworkResource, NetworkingPlugin, SendConfig, SocketHandle,
 };
 
+use bevy::app::{ScheduleRunnerPlugin, ScheduleRunnerSettings};
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -14,9 +15,10 @@ fn main() {
     App::build()
         .add_plugin(bevy::type_registry::TypeRegistryPlugin::default())
         .add_plugin(bevy::core::CorePlugin)
-        .add_plugin(bevy::app::ScheduleRunnerPlugin::run_loop(
-            Duration::from_secs_f64(1.0 / 60.0),
-        ))
+        .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
+            1.0 / 60.0,
+        )))
+        .add_plugin(ScheduleRunnerPlugin {})
         .add_plugin(NetworkingPlugin)
         .init_resource::<EventListenerState>()
         .init_resource::<SendTimerState>()

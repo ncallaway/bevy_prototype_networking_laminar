@@ -61,14 +61,14 @@ fn send_note_update_system(
 fn send_cube_position_system(
     ci: Res<ConnectionInfo>,
     net: Res<NetworkResource>,
-    mut query: Query<(&Cube, &Translation)>,
+    mut query: Query<(&Cube, &Transform)>,
 ) {
     if ci.is_client() {
         return;
     }
 
     for (_, tx) in &mut query.iter() {
-        let pos = tx.0;
+        let pos = &tx.translation;
 
         let msg = TestbedMessage::CubePosition(pos.x(), pos.y(), pos.z());
         let _ = net

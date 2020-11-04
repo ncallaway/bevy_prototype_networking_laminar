@@ -9,7 +9,7 @@ mod ui;
 
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .add_plugin(NetworkingPlugin)
         .add_plugin(plugin::TestbedPlugin)
         .run();

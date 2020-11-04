@@ -137,6 +137,10 @@ fn receive_messages(sockets: &mut TrackedSockets, event_tx: &Sender<NetworkEvent
                     },
                     Bytes::copy_from_slice(packet.payload()),
                 )),
+                SocketEvent::Disconnect(addr) => Some(NetworkEvent::Disconnected(Connection {
+                    addr,
+                    socket: *socket_handle,
+                })),
             };
 
             if let Some(e) = e {

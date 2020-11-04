@@ -4,7 +4,12 @@ use smallvec::SmallVec;
 
 use super::game::Note;
 
-const UI_BACKGROUND: Color = Color::rgba(0.0, 0.0, 0.0, 0.9);
+const UI_BACKGROUND: Color = Color {
+    red: 0.0,
+    green: 0.0,
+    blue: 0.0,
+    alpha: 0.9,
+};
 
 struct ContainerEntity(Entity);
 
@@ -45,7 +50,7 @@ pub mod stages {
 pub fn build(app: &mut AppBuilder) {
     app.init_resource::<ButtonMaterials>()
         .init_resource::<Handle<Font>>()
-        .add_resource(ContainerEntity(Entity::new()))
+        .add_resource(ContainerEntity(Entity::new(1)))
         .add_startup_system(setup_ui.system())
         .add_stage_before(stage::UPDATE, stages::USER_EVENTS)
         .add_stage_after(stage::UPDATE, stages::DOMAIN_EVENTS)
@@ -64,11 +69,9 @@ fn setup_ui(
     mut container: ResMut<ContainerEntity>,
     button_materials: Res<ButtonMaterials>,
 ) {
-    *font_handle = asset_server
-        .load("assets/fonts/FiraMono-Medium.ttf")
-        .unwrap();
+    *font_handle = asset_server.load("assets/fonts/FiraMono-Medium.ttf");
 
-    let e = Entity::new();
+    let e = Entity::new(1);
     container.0 = e;
 
     commands
@@ -107,7 +110,7 @@ fn setup_ui(
                     parent.spawn(TextComponents {
                         text: Text {
                             value: "Send a note".to_string(),
-                            font: *font_handle,
+                            font: font_handle.as_weak(),
                             style: TextStyle {
                                 font_size: 12.0,
                                 color: Color::rgb(0.8, 0.8, 0.8),
@@ -129,19 +132,16 @@ fn setup_ui(
                 })
                 .with_children(|parent| {
                     parent
-                        .spawn_as_entity(
-                            e,
-                            NodeComponents {
-                                style: Style {
-                                    size: Size::new(Val::Percent(100.0), Val::Auto),
-                                    justify_content: JustifyContent::FlexStart,
-                                    flex_direction: FlexDirection::Column,
-                                    ..Default::default()
-                                },
-                                material: materials.add(UI_BACKGROUND.into()),
+                        .spawn(NodeComponents {
+                            style: Style {
+                                size: Size::new(Val::Percent(100.0), Val::Auto),
+                                justify_content: JustifyContent::FlexStart,
+                                flex_direction: FlexDirection::Column,
                                 ..Default::default()
                             },
-                        )
+                            material: materials.add(UI_BACKGROUND.into()),
+                            ..Default::default()
+                        })
                         .with(NoteContainer)
                         .spawn(TextComponents {
                             style: Style {
@@ -150,7 +150,7 @@ fn setup_ui(
                             },
                             text: Text {
                                 value: "NOTES ".to_string(),
-                                font: *font_handle,
+                                font: font_handle.as_weak(),
                                 style: TextStyle {
                                     font_size: 24.0,
                                     color: Color::WHITE,
@@ -166,7 +166,7 @@ fn button_hover_system(
     button_materials: Res<ButtonMaterials>,
     mut interaction_query: Query<(&Button, Mutated<Interaction>, &mut Handle<ColorMaterial>)>,
 ) {
-    for (_, interaction, mut material) in &mut interaction_query.iter() {
+    for (_, interaction, mut material) in &mut interaction_query.iter_mut() {
         match *interaction {
             Interaction::Clicked => {
                 *material = button_materials.pressed;
@@ -184,14 +184,14 @@ fn button_hover_system(
 fn note_display_sync_system(
     mut commands: Commands,
     font_handle: Res<Handle<Font>>,
-    mut notes: Query<&Note>,
-    mut display_containers: Query<(Entity, &NoteContainer)>,
+    mut notes: Query<&mut Note>,
+    display_containers: Query<(Entity, &NoteContainer)>,
     mut note_displays: Query<(Entity, &mut NoteDisplay, &mut Text)>,
 ) {
-    let mut display_borrow = note_displays.iter();
+    let mut display_borrow = note_displays.iter_mut();
     let mut display_iter = display_borrow.into_iter();
 
-    for note in &mut notes.iter() {
+    for note in &mut notes.iter_mut() {
         let has_display = display_iter.next();
 
         match has_display {
@@ -221,11 +221,11 @@ fn note_display_sync_system(
 }
 
 fn note_display_ordering_system(
-    mut containers: Query<(Entity, &NoteContainer, &mut Children)>,
-    mut note_display: Query<(Entity, &mut NoteDisplay)>,
+    mut containers: Query<(Entity, &NoteContainer, &Children)>,
+    mut note_display: Query<(Entity, &NoteDisplay)>,
 ) {
     // get the children of the note container
-    let mut container_borrow = containers.iter();
+    let container_borrow = containers.iter();
     let mut container_children = match container_borrow.into_iter().next() {
         Some((_, _, c)) => c,
         None => return,
@@ -237,7 +237,7 @@ fn note_display_ordering_system(
     let mut needs_reorder = false;
 
     for child in container_children.iter() {
-        let d = note_display.get::<NoteDisplay>(*child).unwrap();
+        let (_, d) = note_display.get(*child).unwrap();
 
         if let Some(prior) = last {
             if d.ordinal > prior {
@@ -249,9 +249,8 @@ fn note_display_ordering_system(
     }
 
     if needs_reorder {
-        let mut display_borrow = note_display.iter();
-        let mut sorted_displays: Vec<(Entity, Mut<NoteDisplay>)> =
-            display_borrow.into_iter().collect();
+        let display_borrow = note_display.iter();
+        let mut sorted_displays: Vec<(Entity, &NoteDisplay)> = display_borrow.into_iter().collect();
 
         sorted_displays.sort_by(|(_, a), (_, b)| b.ordinal.cmp(&a.ordinal));
 
@@ -280,27 +279,25 @@ fn spawn_note_display_with_entity(
     ordinal: u8,
 ) {
     let md = NoteDisplay { ordinal };
-
-    let e = Entity::new();
-    commands
-        .spawn_as_entity(
-            e,
-            TextComponents {
-                style: Style {
-                    align_self: AlignSelf::FlexStart,
-                    ..Default::default()
-                },
-                text: Text {
-                    value,
-                    font: *font_handle,
-                    style: TextStyle {
-                        font_size: 16.0,
-                        color: Color::WHITE,
-                    },
-                },
+    let entity = commands
+        .spawn(TextComponents {
+            style: Style {
+                align_self: AlignSelf::FlexStart,
                 ..Default::default()
             },
-        )
+            text: Text {
+                value,
+                font: font_handle.as_weak(),
+                style: TextStyle {
+                    font_size: 16.0,
+                    color: Color::WHITE,
+                },
+            },
+            ..Default::default()
+        })
         .with(md)
-        .push_children(container_entity, &[e]);
+        .current_entity()
+        .unwrap();
+
+    commands.push_children(container_entity, &[entity]);
 }
