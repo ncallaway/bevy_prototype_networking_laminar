@@ -13,8 +13,7 @@ categories = ["games", "network-programming"]
 exclude = ["assets/**/*"]
 
 [dependencies]
-# NOTE: using commit with fixes for 0.3.0
-bevy = { git="https://github.com/bevyengine/bevy", rev="d682cc6e07be944421e88b57d18589088d0c6ebc"}  # "0.3.0"
+bevy = "0.3"
 laminar = "0.4.0"
 crossbeam-channel = "0.4.3"                   # threaded communication
 bytes = "0.5.6"                               # plumbing message payloads
