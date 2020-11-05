@@ -1,7 +1,7 @@
 [package]
 name = "bevy_prototype_networking_laminar"
-version = "0.1.0"
-authors = ["Noah Callaway <noah@apsis.io>"]
+version = "0.3.0"
+authors = ["Noah Callaway <noah@apsis.io>", "sean"]
 edition = "2018"
 description = "This is a prototype of a networking crate for bevy. This create provides a low-level networking plugin built on top of laminar."
 license = "MIT"
@@ -13,8 +13,8 @@ categories = ["games", "network-programming"]
 exclude = ["assets/**/*"]
 
 [dependencies]
-bevy = "0.1.3"
-laminar = "0.3.2"
+bevy = "0.3"
+laminar = "0.4.0"
 crossbeam-channel = "0.4.3"                   # threaded communication
 bytes = "0.5.6"                               # plumbing message payloads
 uuid = { version = "0.8", features = ["v4"] } # socket handles
