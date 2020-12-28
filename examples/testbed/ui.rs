@@ -1,12 +1,6 @@
 use bevy::prelude::*;
 
-use smallvec::SmallVec;
-
 use super::game::Note;
-
-const UI_BACKGROUND: Color = Color::rgba(0.0, 0.0, 0.0, 0.9);
-
-struct ContainerEntity(Entity);
 
 struct ButtonMaterials {
     normal: Handle<ColorMaterial>,
@@ -45,50 +39,57 @@ pub mod stages {
 pub fn build(app: &mut AppBuilder) {
     app.init_resource::<ButtonMaterials>()
         .init_resource::<Handle<Font>>()
-        .add_resource(ContainerEntity(Entity::new()))
         .add_startup_system(setup_ui.system())
-        .add_stage_before(stage::UPDATE, stages::USER_EVENTS)
-        .add_stage_after(stage::UPDATE, stages::DOMAIN_EVENTS)
-        .add_stage_after(stages::DOMAIN_EVENTS, stages::DOMAIN_SYNC)
-        .add_stage_after(stages::DOMAIN_SYNC, stages::VISUAL_SYNC)
+        .add_stage_before(stage::UPDATE, stages::USER_EVENTS, SystemStage::parallel())
+        .add_stage_after(
+            stage::UPDATE,
+            stages::DOMAIN_EVENTS,
+            SystemStage::parallel(),
+        )
+        .add_stage_after(
+            stages::DOMAIN_EVENTS,
+            stages::DOMAIN_SYNC,
+            SystemStage::parallel(),
+        )
+        .add_stage_after(
+            stages::DOMAIN_SYNC,
+            stages::VISUAL_SYNC,
+            SystemStage::parallel(),
+        )
         .add_system_to_stage(stages::USER_EVENTS, button_hover_system.system())
         .add_system(note_display_sync_system.system())
         .add_system_to_stage(stages::VISUAL_SYNC, note_display_ordering_system.system());
 }
 
 fn setup_ui(
-    mut commands: Commands,
+    commands: &mut Commands,
     asset_server: Res<AssetServer>,
     mut font_handle: ResMut<Handle<Font>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut container: ResMut<ContainerEntity>,
     button_materials: Res<ButtonMaterials>,
 ) {
-    *font_handle = asset_server
-        .load("assets/fonts/FiraMono-Medium.ttf")
-        .unwrap();
+    *font_handle = asset_server.load("fonts/FiraMono-Medium.ttf");
 
-    let e = Entity::new();
-    container.0 = e;
+    let background = Color::rgba(0.0, 0.0, 0.0, 0.9);
 
     commands
         // 2d camera
-        .spawn(UiCameraComponents::default())
+        .spawn(CameraUiBundle::default())
         // root sidebar
-        .spawn(NodeComponents {
+        .spawn(NodeBundle {
             style: Style {
                 size: Size::new(Val::Px(325.0), Val::Percent(100.0)),
                 justify_content: JustifyContent::SpaceBetween,
                 flex_direction: FlexDirection::Column,
                 ..Default::default()
             },
-            material: materials.add(UI_BACKGROUND.into()),
+            material: materials.add(background.into()),
             ..Default::default()
         })
         .with_children(|parent| {
             parent
                 // button
-                .spawn(ButtonComponents {
+                .spawn(ButtonBundle {
                     style: Style {
                         size: Size::new(Val::Percent(100.0), Val::Px(45.0)),
                         // center button
@@ -99,61 +100,60 @@ fn setup_ui(
                         align_items: AlignItems::Center,
                         ..Default::default()
                     },
-                    material: button_materials.normal,
+                    material: button_materials.normal.clone(),
                     ..Default::default()
                 })
                 .with_children(|parent| {
                     // button label
-                    parent.spawn(TextComponents {
+                    parent.spawn(TextBundle {
                         text: Text {
                             value: "Send a note".to_string(),
-                            font: *font_handle,
+                            font: font_handle.clone(),
                             style: TextStyle {
                                 font_size: 12.0,
                                 color: Color::rgb(0.8, 0.8, 0.8),
+                                ..Default::default()
                             },
                         },
                         ..Default::default()
                     });
                 })
                 // notes box
-                .spawn(NodeComponents {
+                .spawn(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Percent(100.0), Val::Auto),
                         justify_content: JustifyContent::FlexStart,
                         flex_direction: FlexDirection::Column,
                         ..Default::default()
                     },
-                    material: materials.add(UI_BACKGROUND.into()),
+                    material: materials.add(background.into()),
                     ..Default::default()
                 })
                 .with_children(|parent| {
                     parent
-                        .spawn_as_entity(
-                            e,
-                            NodeComponents {
-                                style: Style {
-                                    size: Size::new(Val::Percent(100.0), Val::Auto),
-                                    justify_content: JustifyContent::FlexStart,
-                                    flex_direction: FlexDirection::Column,
-                                    ..Default::default()
-                                },
-                                material: materials.add(UI_BACKGROUND.into()),
+                        .spawn(NodeBundle {
+                            style: Style {
+                                size: Size::new(Val::Percent(100.0), Val::Auto),
+                                justify_content: JustifyContent::FlexStart,
+                                flex_direction: FlexDirection::Column,
                                 ..Default::default()
                             },
-                        )
+                            material: materials.add(background.into()),
+                            ..Default::default()
+                        })
                         .with(NoteContainer)
-                        .spawn(TextComponents {
+                        .spawn(TextBundle {
                             style: Style {
                                 align_self: AlignSelf::Center,
                                 ..Default::default()
                             },
                             text: Text {
                                 value: "NOTES ".to_string(),
-                                font: *font_handle,
+                                font: font_handle.clone(),
                                 style: TextStyle {
                                     font_size: 24.0,
                                     color: Color::WHITE,
+                                    ..Default::default()
                                 },
                             },
                             ..Default::default()
@@ -164,33 +164,34 @@ fn setup_ui(
 
 fn button_hover_system(
     button_materials: Res<ButtonMaterials>,
-    mut interaction_query: Query<(&Button, Mutated<Interaction>, &mut Handle<ColorMaterial>)>,
+    mut interaction_query: Query<
+        (&Button, &Interaction, &mut Handle<ColorMaterial>),
+        Mutated<Interaction>,
+    >,
 ) {
-    for (_, interaction, mut material) in &mut interaction_query.iter() {
+    for (_button, interaction, mut material) in interaction_query.iter_mut() {
         match *interaction {
             Interaction::Clicked => {
-                *material = button_materials.pressed;
+                *material = button_materials.pressed.clone();
             }
             Interaction::Hovered => {
-                *material = button_materials.hovered;
+                *material = button_materials.hovered.clone();
             }
             Interaction::None => {
-                *material = button_materials.normal;
+                *material = button_materials.normal.clone();
             }
         }
     }
 }
 
 fn note_display_sync_system(
-    mut commands: Commands,
+    mut commands: &mut Commands,
     font_handle: Res<Handle<Font>>,
-    mut notes: Query<&Note>,
+    notes: Query<&Note>,
     mut display_containers: Query<(Entity, &NoteContainer)>,
     mut note_displays: Query<(Entity, &mut NoteDisplay, &mut Text)>,
 ) {
-    let mut display_borrow = note_displays.iter();
-    let mut display_iter = display_borrow.into_iter();
-
+    let mut display_iter = note_displays.iter_mut();
     for note in &mut notes.iter() {
         let has_display = display_iter.next();
 
@@ -206,7 +207,7 @@ fn note_display_sync_system(
             }
             None => spawn_note_display(
                 &mut commands,
-                *font_handle,
+                font_handle.clone(),
                 &mut display_containers,
                 format!("[{}] {}", note.from, note.note),
                 note.ordinal,
@@ -222,41 +223,38 @@ fn note_display_sync_system(
 
 fn note_display_ordering_system(
     mut containers: Query<(Entity, &NoteContainer, &mut Children)>,
-    mut note_display: Query<(Entity, &mut NoteDisplay)>,
+    note_display: Query<&NoteDisplay>,
 ) {
     // get the children of the note container
-    let mut container_borrow = containers.iter();
+    let container_borrow = containers.iter_mut();
     let mut container_children = match container_borrow.into_iter().next() {
         Some((_, _, c)) => c,
         None => return,
     };
 
-    // (_, _, mut container_children) = ?;
-
     let mut last = None;
     let mut needs_reorder = false;
 
     for child in container_children.iter() {
-        let d = note_display.get::<NoteDisplay>(*child).unwrap();
-
-        if let Some(prior) = last {
-            if d.ordinal > prior {
-                needs_reorder = true;
+        if let Ok(note) = note_display.get(*child) {
+            if let Some(prior) = last {
+                if note.ordinal > prior {
+                    needs_reorder = true;
+                }
             }
-        }
 
-        last = Some(d.ordinal);
+            last = Some(note.ordinal);
+        }
     }
 
     if needs_reorder {
-        let mut display_borrow = note_display.iter();
-        let mut sorted_displays: Vec<(Entity, Mut<NoteDisplay>)> =
-            display_borrow.into_iter().collect();
-
-        sorted_displays.sort_by(|(_, a), (_, b)| b.ordinal.cmp(&a.ordinal));
-
-        let sorted_entities: Vec<Entity> = sorted_displays.iter().map(|(e, _)| *e).collect();
-        container_children.0 = SmallVec::from_slice(&sorted_entities[..]);
+        let mut vec: Vec<Entity> = container_children.iter().copied().collect();
+        vec.sort_by(|a, b| {
+            let a_ordinal = note_display.get(*a).unwrap().ordinal;
+            let b_ordinal = note_display.get(*b).unwrap().ordinal;
+            b_ordinal.cmp(&a_ordinal)
+        });
+        *container_children = Children::with(&vec[..]);
     }
 }
 
@@ -281,26 +279,23 @@ fn spawn_note_display_with_entity(
 ) {
     let md = NoteDisplay { ordinal };
 
-    let e = Entity::new();
     commands
-        .spawn_as_entity(
-            e,
-            TextComponents {
-                style: Style {
-                    align_self: AlignSelf::FlexStart,
-                    ..Default::default()
-                },
-                text: Text {
-                    value,
-                    font: *font_handle,
-                    style: TextStyle {
-                        font_size: 16.0,
-                        color: Color::WHITE,
-                    },
-                },
+        .spawn(TextBundle {
+            style: Style {
+                align_self: AlignSelf::FlexStart,
                 ..Default::default()
             },
-        )
+            text: Text {
+                value,
+                font: font_handle.clone(),
+                style: TextStyle {
+                    font_size: 16.0,
+                    color: Color::WHITE,
+                    ..Default::default()
+                },
+            },
+            ..Default::default()
+        })
         .with(md)
-        .push_children(container_entity, &[e]);
+        .with(Parent(container_entity));
 }

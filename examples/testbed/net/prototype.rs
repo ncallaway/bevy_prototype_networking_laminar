@@ -14,15 +14,17 @@ use super::{ClientUpdateEvent, ConnectionInfo, CreateNotes, CubePositionEvent, S
 // if false, we will serialize using bincode instead
 const SERIALIZE_JSON: bool = true;
 
+const PROTOTYPE_AFTER: &str = "prototype_after";
+
 pub fn build(app: &mut AppBuilder) {
     app.init_resource::<NetworkEventState>()
         .init_resource::<Players>()
-        .add_stage_after(stage::UPDATE, "prototype_after")
+        .add_stage_after(stage::UPDATE, PROTOTYPE_AFTER, SystemStage::parallel())
         .add_startup_system(initial_connection_system.system())
         .add_system(send_cube_position_system.system())
         .add_system(handle_network_events.system())
         .add_system(send_create_note_system.system())
-        .add_system_to_stage("prototype_after", send_note_update_system.system());
+        .add_system_to_stage(PROTOTYPE_AFTER, send_note_update_system.system());
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -45,7 +47,7 @@ fn initial_connection_system(ci: Res<ConnectionInfo>, net: ResMut<NetworkResourc
 fn send_note_update_system(
     ci: Res<ConnectionInfo>,
     net: Res<NetworkResource>,
-    mut changed_query: Query<(Changed<Note>,)>,
+    changed_query: Query<(), Changed<Note>>,
     all_notes_query: Query<&Note>,
 ) {
     if ci.is_client() {
@@ -61,16 +63,16 @@ fn send_note_update_system(
 fn send_cube_position_system(
     ci: Res<ConnectionInfo>,
     net: Res<NetworkResource>,
-    mut query: Query<(&Cube, &Translation)>,
+    query: Query<(&Cube, &Transform)>,
 ) {
     if ci.is_client() {
         return;
     }
 
     for (_, tx) in &mut query.iter() {
-        let pos = tx.0;
+        let pos = tx.translation;
 
-        let msg = TestbedMessage::CubePosition(pos.x(), pos.y(), pos.z());
+        let msg = TestbedMessage::CubePosition(pos.x, pos.y, pos.z);
         let _ = net
             .broadcast(
                 &msg.encode()[..],
@@ -216,9 +218,9 @@ fn handle_sync_notes_event(
     }
 }
 
-fn broadcast_all_notes(net: Res<NetworkResource>, mut notes_query: Query<&Note>) {
+fn broadcast_all_notes(net: Res<NetworkResource>, notes_query: Query<&Note>) {
     let mut notes = Vec::new();
-    for msg in &mut notes_query.iter() {
+    for msg in notes_query.iter() {
         notes.push(msg.clone());
     }
 

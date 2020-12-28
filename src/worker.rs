@@ -126,10 +126,12 @@ fn receive_messages(sockets: &mut TrackedSockets, event_tx: &Sender<NetworkEvent
                     addr,
                     socket: *socket_handle,
                 })),
-                SocketEvent::Timeout(addr) => Some(NetworkEvent::Disconnected(Connection {
-                    addr,
-                    socket: *socket_handle,
-                })),
+                SocketEvent::Timeout(addr) | SocketEvent::Disconnect(addr) => {
+                    Some(NetworkEvent::Disconnected(Connection {
+                        addr,
+                        socket: *socket_handle,
+                    }))
+                }
                 SocketEvent::Packet(packet) => Some(NetworkEvent::Message(
                     Connection {
                         addr: packet.addr(),

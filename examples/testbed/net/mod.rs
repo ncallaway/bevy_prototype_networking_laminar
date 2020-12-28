@@ -65,21 +65,21 @@ fn handle_cube_events(
     ci: Res<ConnectionInfo>,
     mut state: ResMut<EventListenerState>,
     cube_events: Res<Events<CubePositionEvent>>,
-    mut query: Query<(&Cube, &mut Translation)>,
+    mut query: Query<(&Cube, &mut Transform)>,
 ) {
     if ci.is_server() {
         return;
     }
 
     for event in state.cube_events.iter(&cube_events) {
-        for (_, mut tx) in &mut query.iter() {
-            tx.0 = Vec3::new(event.0, event.1, event.2);
+        for (_, mut tx) in &mut query.iter_mut() {
+            tx.translation = Vec3::new(event.0, event.1, event.2);
         }
     }
 }
 
 fn handle_client_update_events(
-    mut commands: Commands,
+    commands: &mut Commands,
     ci: Res<ConnectionInfo>,
     mut state: ResMut<EventListenerState>,
     client_update_events: Res<Events<ClientUpdateEvent>>,
@@ -98,7 +98,7 @@ fn handle_client_update_events(
 }
 
 fn handle_sync_notes_events(
-    mut commands: Commands,
+    commands: &mut Commands,
     ci: Res<ConnectionInfo>,
     mut state: ResMut<EventListenerState>,
     sync_notes_events: Res<Events<SyncNotesEvent>>,
@@ -111,11 +111,8 @@ fn handle_sync_notes_events(
     if let Some(event) = state.sync_notes_events.iter(&sync_notes_events).next() {
         let server_notes = &event.notes;
 
-        let mut client_borrow = client_notes.iter();
-        let mut client_iter = client_borrow.into_iter();
-
         for server_note in &mut server_notes.iter() {
-            let has_note = client_iter.next();
+            let has_note = client_notes.iter_mut().next();
 
             match has_note {
                 Some((_, mut client_note)) => {
@@ -141,17 +138,11 @@ fn handle_sync_notes_events(
 
 impl ConnectionInfo {
     pub fn is_server(&self) -> bool {
-        match &self {
-            ConnectionInfo::Server { .. } => true,
-            _ => false,
-        }
+        matches!(&self, ConnectionInfo::Server { .. })
     }
 
     pub fn is_client(&self) -> bool {
-        match &self {
-            ConnectionInfo::Client { .. } => true,
-            _ => false,
-        }
+        matches!(&self, ConnectionInfo::Client { .. })
     }
 }
 

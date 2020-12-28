@@ -1,4 +1,4 @@
-use bevy::app::ScheduleRunnerPlugin;
+use bevy::app::{ScheduleRunnerPlugin, ScheduleRunnerSettings};
 use bevy::prelude::*;
 
 use std::net::SocketAddr;
@@ -13,12 +13,11 @@ const CLIENT: &str = "127.0.0.1:12350";
 
 fn main() {
     App::build()
-        // minimal plugins necessary for timers + headless loop
-        .add_plugin(bevy::type_registry::TypeRegistryPlugin::default())
-        .add_plugin(bevy::core::CorePlugin)
-        .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+        .add_plugins(MinimalPlugins)
+        .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
             1.0 / 60.0,
         )))
+        .add_plugin(ScheduleRunnerPlugin::default())
         // The NetworkingPlugin
         .add_plugin(NetworkingPlugin)
         // Our send
@@ -84,8 +83,8 @@ fn send_messages(
     mut state: ResMut<SendTimer>,
     net: ResMut<NetworkResource>,
 ) {
-    state.message_timer.tick(time.delta_seconds);
-    if state.message_timer.finished {
+    state.message_timer.tick(time.delta_seconds());
+    if state.message_timer.finished() {
         let server: SocketAddr = SERVER.parse().unwrap();
 
         let msg = if ci.is_server() {
@@ -118,17 +117,11 @@ pub enum ConnectionInfo {
 
 impl ConnectionInfo {
     pub fn is_server(&self) -> bool {
-        match &self {
-            ConnectionInfo::Server => true,
-            _ => false,
-        }
+        matches!(&self, ConnectionInfo::Server)
     }
 
     pub fn is_client(&self) -> bool {
-        match &self {
-            ConnectionInfo::Client => true,
-            _ => false,
-        }
+        matches!(&self, ConnectionInfo::Client)
     }
 }
 
