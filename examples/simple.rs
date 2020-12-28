@@ -1,4 +1,4 @@
-use bevy::app::ScheduleRunnerSettings;
+use bevy::app::{ScheduleRunnerPlugin, ScheduleRunnerSettings};
 use bevy::prelude::*;
 
 use std::net::SocketAddr;
@@ -17,6 +17,7 @@ fn main() {
         .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
             1.0 / 60.0,
         )))
+        .add_plugin(ScheduleRunnerPlugin::default())
         // The NetworkingPlugin
         .add_plugin(NetworkingPlugin)
         // Our send
