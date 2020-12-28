@@ -13,12 +13,11 @@ categories = ["games", "network-programming"]
 exclude = ["assets/**/*"]
 
 [dependencies]
-bevy = "0.2"
+bevy = "0.4"
 laminar = "0.4"
 crossbeam-channel = "0.5"                   # threaded communication
 bytes = "0.6"                               # plumbing message payloads
 uuid = { version = "0.8", features = ["v4"] } # socket handles
-
 
 [dev-dependencies]
 cargo-husky = { version = "1", features = ["user-hooks"] }
